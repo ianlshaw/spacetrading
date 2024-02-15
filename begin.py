@@ -514,12 +514,12 @@ def is_ship_docked(get_ship_json):
     return True
   return False  
 
-def is_ship_ready(get_ship_json):   
+
+def is_ship_cooling_down(get_ship_json):   
   shipSymbol = get_ship_json['data']['symbol']
   remainingSeconds = get_ship_json['data']['cooldown']['remainingSeconds']
-  if remainingSeconds == 0:
-    if is_ship_in_transit(get_ship_json):
-      return False 
+  if remainingSeconds != 0: 
+    print(f'{WARN_STRING} {shipSymbol} {COOLDOWN_STRING} {remainingSeconds} SECONDS REMAINING')
     return True
   print(f'{WARN_STRING} {shipSymbol} {COOLDOWN_STRING} {remainingSeconds} SECONDS REMAINING')
   return False
@@ -534,6 +534,9 @@ def status_report(get_ship_json):
   print(f'{INFO_STRING} {shipSymbol} {REPORTING_STRING} ')
   print(f'{INFO_STRING} {shipSymbol} {FUEL_STRING} {remaining_fuel}/{fuel_capacity}')
   print(f'{INFO_STRING} {shipSymbol} {CARGO_STRING} {cargo_units}/{max_capacity}')
+  else:
+    return False
+ 
 
 def does_ship_need_refuel(get_ship_json):
   shipSymbol = get_ship_json['data']['symbol']
@@ -551,15 +554,20 @@ def basic_mining_loop(get_ship_json):
   print(f'{INFO_STRING} {shipSymbol} {ASSIGNMENT_STRING} MINING')
 
   if is_ship_already_at_waypoint(get_ship_json, CONTRACT_DELIVERY_LOCATION):
+
     if not is_ship_docked(get_ship_json):
       dock(get_ship_json)
+
+
+    dock(get_ship_json)
+    if does_ship_need_refuel:
+      refuel(get_ship_json)
 
     if not is_ship_empty(get_ship_json):      
       for cargoSymbol in SALE_GOODS:
         sell(get_ship_json, cargoSymbol, how_much_of_x_does_ship_have_in_cargo(get_ship_json, cargoSymbol))
     orbit(get_ship_json)
     move(get_ship_json, CONTRACT_ASTEROID_LOCATION)
-
   else:
     #ship is not at DELIVERY waypoint
     if is_ship_already_at_waypoint(get_ship_json, CONTRACT_ASTEROID_LOCATION):
@@ -578,11 +586,7 @@ def basic_mining_loop(get_ship_json):
   
 def basic_survey_loop(get_ship_json):
   shipSymbol = get_ship_json['data']['symbol']
-  #print(f'{INFO_STRING} {shipSymbol} basic_survey_loop')
-
-  #if does_ship_need_refuel(get_ship_json):
-    
- 
+  print(f'{INFO_STRING} {SURVEY_SHIP} {ASSIGNMENT_STRING} SURVEYING')
   if is_ship_already_at_waypoint(get_ship_json, CONTRACT_ASTEROID_LOCATION):
     #print(f'{INFO_STRING} {shipSymbol} IS ALREADY AT {CONTRACT_ASTEROID_LOCATION}')
     if is_ship_in_orbit(get_ship_json):
@@ -639,6 +643,8 @@ while True:
   status_report(survey_ship_json)
   if is_ship_ready(survey_ship_json):
       print(f'{INFO_STRING} {SURVEY_SHIP} {ASSIGNMENT_STRING} SURVEYING')
+  if not is_ship_cooling_down(survey_ship_json):
+    if not is_ship_in_transit(survey_ship_json):
       basic_survey_loop(survey_ship_json)
 
   # command ship main
@@ -650,6 +656,8 @@ while True:
         dock(command_ship_json)
         refuel(command_ship_json)
     else:
+  if not is_ship_cooling_down(command_ship_json):
+    if not is_ship_in_transit(command_ship_json):
       basic_command_loop(command_ship_json)
   
   # mining ship main
@@ -662,6 +670,8 @@ while True:
         dock(mining_ship_json)
         refuel(mining_ship_json)
       else:
+    if not is_ship_cooling_down(mining_ship_json):
+      if not is_ship_in_transit(mining_ship_json):
         basic_mining_loop(mining_ship_json)
     
   print (f'{INFO_STRING} TURN {turn} {TURN_STRING} END')
