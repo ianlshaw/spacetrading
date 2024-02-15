@@ -18,13 +18,14 @@ SYSTEM_STRING     = 'SYSTEM'
 TURN_STRING       = '|============|'
 MINING_STRING     = '| MINING     |'
 ASSIGNMENT_STRING = '| ASSIGNMENT |'
-
 TRANSIT_STRING    = '| TRANSIT    |'
 FUEL_STRING       = '| FUEL       |'
 SURVEY_STRING     = '| SURVEY     |'
 COOLDOWN_STRING   = '| COOLDOWN   |'
 CARGO_STRING      = '| CARGO      |'
 SOLD_STRING       = '| SOLD       |'
+REPORTING_STRING  = '| REPORTING  |'
+
 
 
 
@@ -64,6 +65,8 @@ def prettyprint(blob):
 
 def get_status():
   r = requests.get(f'{BASE_URL}', headers=DEFAULT_HEADERS)
+  global HTTP_CALL_COUNTER
+  HTTP_CALL_COUNTER += 1
   json_object = json.loads(r.text)
   status = json_object['status']
   leaderboards = json_object['leaderboards']
@@ -87,6 +90,8 @@ def get_status():
 def create_agent():
   payload = {"symbol": "TVRJ", "faction": "COSMIC" }
   r = requests.post(f'{BASE_URL}/register', json=payload, headers=APPLICATION_HEADER)
+  global HTTP_CALL_COUNTER
+  HTTP_CALL_COUNTER += 1
   print(r.text)
 
 
@@ -96,6 +101,8 @@ def create_agent():
 
 def my_agent():
   r = requests.get(f'{BASE_URL}/my/agent', headers=DEFAULT_HEADERS)
+  global HTTP_CALL_COUNTER
+  HTTP_CALL_COUNTER += 1
  # prettyprint(r.text)
   json_object = json.loads(r.text)
   symbol = json_object['data']['symbol']
@@ -112,10 +119,14 @@ def my_agent():
 
 def waypoint(systemSymbol, waypointSymbol):
   r = requests.get(f'{BASE_URL}/systems/{systemSymbol}/waypoints/{waypointSymbol}', headers=DEFAULT_HEADERS)
+  global HTTP_CALL_COUNTER
+  HTTP_CALL_COUNTER += 1
   prettyprint(r.text)
 
 def contract():
   r = requests.get(f'{BASE_URL}/my/contracts', headers=DEFAULT_HEADERS) 
+  global HTTP_CALL_COUNTER
+  HTTP_CALL_COUNTER += 1
   json_object = r.json()
   contract_id = json_object['data'][0]['id']
   print(r.text)
@@ -124,10 +135,14 @@ def contract():
 
 def accept_contract(contract_id):
   r = requests.post(f'{BASE_URL}/my/contracts/{contract_id}/accept', headers=DEFAULT_HEADERS) 
+  global HTTP_CALL_COUNTER
+  HTTP_CALL_COUNTER += 1
   prettyprint(r.text)
 
 def find_a_shipyard(systemSymbol):
   r = requests.get(f'{BASE_URL}/systems/{systemSymbol}/waypoints?traits=SHIPYARD', headers=DEFAULT_HEADERS)
+  global HTTP_CALL_COUNTER
+  HTTP_CALL_COUNTER += 1
   json_object = json.loads(r.text)
   data = json_object['data']
 
@@ -136,6 +151,8 @@ def find_a_shipyard(systemSymbol):
 
 def find_a_market(systemSymbol):
   r = requests.get(f'{BASE_URL}/systems/{systemSymbol}/waypoints?traits=MARKETPLACE', headers=DEFAULT_HEADERS)
+  global HTTP_CALL_COUNTER
+  HTTP_CALL_COUNTER += 1
   json_object = json.loads(r.text)
   data = json_object['data']
 
@@ -150,42 +167,55 @@ def find_market_for_cargo(systemSymbol, miningShipSymbol):
   print('1')
 
 def view_available_ships(systemSymbol, shipyardWaypointSymbol):
-    r = requests.get(f'{BASE_URL}/systems/{systemSymbol}/waypoints/{shipyardWaypointSymbol}/shipyard',  headers=DEFAULT_HEADERS)
-    prettyprint(r.text)
+  r = requests.get(f'{BASE_URL}/systems/{systemSymbol}/waypoints/{shipyardWaypointSymbol}/shipyard',  headers=DEFAULT_HEADERS)
+  global HTTP_CALL_COUNTER
+  HTTP_CALL_COUNTER += 1
+  prettyprint(r.text)
 
 def buy_ship(shipType, shipyardWaypointSymbol):
   payload = {'shipType': f"{shipType}", 'waypointSymbol': f"{shipyardWaypointSymbol}" }
   r = requests.post(f'{BASE_URL}/my/ships', json=payload, headers=DEFAULT_HEADERS) 
+  global HTTP_CALL_COUNTER
+  HTTP_CALL_COUNTER += 1
   prettyprint(r.text)
 
 def my_ships():
-    r = requests.get(f'{BASE_URL}/my/ships',  headers=DEFAULT_HEADERS)
-    prettyprint(r.text)
+  r = requests.get(f'{BASE_URL}/my/ships',  headers=DEFAULT_HEADERS)
+  global HTTP_CALL_COUNTER
+  HTTP_CALL_COUNTER += 1
+  prettyprint(r.text)
 
 def get_ship(shipSymbol):
-    r = requests.get(f'{BASE_URL}/my/ships/{shipSymbol}',  headers=DEFAULT_HEADERS)
-    #prettyprint(r.text)
-    return r.text
+  r = requests.get(f'{BASE_URL}/my/ships/{shipSymbol}',  headers=DEFAULT_HEADERS)
+  global HTTP_CALL_COUNTER
+  HTTP_CALL_COUNTER += 1
+  #prettyprint(r.text)
+
+  return r.text
 
 def find_nearby_asteroid(systemSymbol):
-    r = requests.get(f'{BASE_URL}/systems/{systemSymbol}/waypoints?type=ENGINEERED_ASTEROID',  headers=DEFAULT_HEADERS)
-    json_object = json.loads(r.text)
-    data = json_object['data']
-
-    for item in data:
-      print(item["symbol"])
+  r = requests.get(f'{BASE_URL}/systems/{systemSymbol}/waypoints?type=ENGINEERED_ASTEROID',  headers=DEFAULT_HEADERS)
+  global HTTP_CALL_COUNTER
+  HTTP_CALL_COUNTER += 1
+  json_object = json.loads(r.text)
+  data = json_object['data']
+  for item in data:
+    print(item["symbol"])
 
 def my_ships():
-    r = requests.get(f'{BASE_URL}/my/ships', headers=DEFAULT_HEADERS)
-    json_object = json.loads(r.text)
-    data = json_object['data']
-
-    for item in data:
-      print(item["symbol"])
+  r = requests.get(f'{BASE_URL}/my/ships', headers=DEFAULT_HEADERS)
+  global HTTP_CALL_COUNTER
+  HTTP_CALL_COUNTER += 1
+  json_object = json.loads(r.text)
+  data = json_object['data']
+  for item in data:
+    print(item["symbol"])
 
 def orbit(get_ship_json):
   shipSymbol = get_ship_json['data']['symbol']
   r = requests.post(f'{BASE_URL}/my/ships/{shipSymbol}/orbit', headers=DEFAULT_HEADERS)
+  global HTTP_CALL_COUNTER
+  HTTP_CALL_COUNTER += 1
   json_object = r.json()
   if r.status_code != 200:
     print(json_object['error']['message'])
@@ -198,6 +228,8 @@ def move(get_ship_json, waypointSymbol):
   shipSymbol = get_ship_json['data']['symbol']
   payload = {'waypointSymbol': f"{waypointSymbol}" }
   r = requests.post(f'{BASE_URL}/my/ships/{shipSymbol}/navigate', json=payload, headers=DEFAULT_HEADERS) 
+  global HTTP_CALL_COUNTER
+  HTTP_CALL_COUNTER += 1
   json_object = r.json()
 
   if r.status_code != 200:
@@ -212,14 +244,14 @@ def move(get_ship_json, waypointSymbol):
 def dock(get_ship_json):
   shipSymbol = get_ship_json['data']['symbol']
   r = requests.post(f'{BASE_URL}/my/ships/{shipSymbol}/dock', headers=DEFAULT_HEADERS) 
+  global HTTP_CALL_COUNTER
+  HTTP_CALL_COUNTER += 1
   json_object = json.loads(r.text)
-
   if r.status_code != 200:
     print(json_object['error']['message'])
     return
   destination = json_object['data']['nav']['route']['destination']['symbol']
   status = json_object['data']['nav']['status']
-  
   print(f'{INFO_STRING} {shipSymbol} {TRANSIT_STRING} {status} AT {destination}')
 
 def fuel_tank_free_space(get_ship_json):
@@ -230,6 +262,8 @@ def refuel(get_ship_json):
     shipSymbol = get_ship_json['data']['symbol']
     print(f'{INFO_STRING} {shipSymbol} {FUEL_STRING} REFUELLING')
     r = requests.post(f'{BASE_URL}/my/ships/{shipSymbol}/refuel', headers=DEFAULT_HEADERS) 
+    global HTTP_CALL_COUNTER
+    HTTP_CALL_COUNTER += 1
     json_object = r.json()
     if r.status_code != 200:
       print(json_object['error']['message'])
@@ -242,6 +276,8 @@ def refuel(get_ship_json):
 def extract(miningShipSymbol):
     print(f'{miningShipSymbol} Extracting...')
     r = requests.post(f'{BASE_URL}/my/ships/{miningShipSymbol}/extract', headers=DEFAULT_HEADERS) 
+    global HTTP_CALL_COUNTER
+    HTTP_CALL_COUNTER += 1
     json_object = r.json()
     if r.status_code != 201:
       print(json_object['error']['message'])
@@ -251,57 +287,59 @@ def extract(miningShipSymbol):
       haul = extraction['yield']
       mined_symbol = haul['symbol']
       units = haul['units']
-
-      
       max_capacity = data['cargo']['capacity']
       capacity = data['cargo']['units']
       print(f'{miningShipSymbol} {MINING_STRING} EXTRACTED {units} {mined_symbol} AND IS {capacity}/{max_capacity}')
       
 def view_market_data(systemSymbol, waypointSymbol):
-    r = requests.get(f'{BASE_URL}/systems/{systemSymbol}/waypoints/{waypointSymbol}/market', headers=DEFAULT_HEADERS)
- 
-    json_object = json.loads(r.text)
-
-    # ['data']['tradeGoods'] likely only exists if you have a ship at the waypoint.
-
-    data = json_object['data']['imports']
-    for item in data:
-      print(f'{item["symbol"]}')
-     # print(f'volume {item["tradeVolume"]}')
-     # print(f'supply {item["supply"]}')
-     # print(f'buy@  {item["purchasePrice"]}')
-     # print(f'sell@ {item["sellPrice"]}')
+  r = requests.get(f'{BASE_URL}/systems/{systemSymbol}/waypoints/{waypointSymbol}/market', headers=DEFAULT_HEADERS)
+  global HTTP_CALL_COUNTER
+  HTTP_CALL_COUNTER += 1
+  json_object = json.loads(r.text)
+  # ['data']['tradeGoods'] likely only exists if you have a ship at the waypoint.
+  data = json_object['data']['imports']
+  for item in data:
+    print(f'{item["symbol"]}')
+   # print(f'volume {item["tradeVolume"]}')
+   # print(f'supply {item["supply"]}')
+   # print(f'buy@  {item["purchasePrice"]}')
+   # print(f'sell@ {item["sellPrice"]}')
 
       
 def sell(get_ship_json, goodsSymbol, units):
-    shipSymbol = get_ship_json['data']['symbol']
-    payload = {'symbol': f"{goodsSymbol}", 'units': f"{units}" }
-    r = requests.post(f'{BASE_URL}/my/ships/{shipSymbol}/sell', json=payload, headers=DEFAULT_HEADERS) 
-    json_object = json.loads(r.text)
-    if r.status_code != 201:
-      error = json_object['error']
-      message = error['message']
-      return
-    
-    totalPrice = json_object['data']['transaction']['totalPrice']
-    
-
-    print(f'{INFO_STRING} {shipSymbol} {SOLD_STRING} {units} {goodsSymbol} for {totalPrice}')
+  shipSymbol = get_ship_json['data']['symbol']
+  payload = {'symbol': f"{goodsSymbol}", 'units': f"{units}" }
+  r = requests.post(f'{BASE_URL}/my/ships/{shipSymbol}/sell', json=payload, headers=DEFAULT_HEADERS) 
+  global HTTP_CALL_COUNTER
+  HTTP_CALL_COUNTER += 1
+  json_object = json.loads(r.text)
+  if r.status_code != 201:
+    error = json_object['error']
+    message = error['message']
+    return
+  totalPrice = json_object['data']['transaction']['totalPrice']
+  print(f'{INFO_STRING} {shipSymbol} {SOLD_STRING} {units} {goodsSymbol} for {totalPrice}')
     
 
 def deliver_goods(miningShipSymbol, tradeSymbol, units, contractId):
     payload = {'shipSymbol': f"{miningShipSymbol}", 'tradeSymbol': f"{tradeSymbol}", 'units': f"{units}" }
     r = requests.post(f'{BASE_URL}/my/contracts/{contractId}/deliver', json=payload, headers=DEFAULT_HEADERS) 
+    global HTTP_CALL_COUNTER
+    HTTP_CALL_COUNTER += 1
     prettyprint(r.text)
 
 def fulfil_contract(contractId):
     r = requests.post(f'{BASE_URL}/my/contracts/{contractId}/fulfill', headers=DEFAULT_HEADERS) 
+    global HTTP_CALL_COUNTER
+    HTTP_CALL_COUNTER += 1
     prettyprint(r.text)
 
 def jettison_cargo(get_ship_json, cargoSymbol, units):
   shipSymbol = get_ship_json['data']['symbol']
   payload = {'shipSymbol': f"{shipSymbol}", 'symbol': f"{cargoSymbol}", 'units': f"{units}" }
   r = requests.post(f'{BASE_URL}/my/ships/{shipSymbol}/jettison', json=payload, headers=DEFAULT_HEADERS) 
+  global HTTP_CALL_COUNTER
+  HTTP_CALL_COUNTER += 1
   json_object = r.json()
   if r.status_code != 200:
     error = json_object['error']
@@ -315,16 +353,13 @@ def is_best_survey_expired():
   if BEST_SURVEY_SCORE == 0.00:
     print(f'{WARN_STRING} {SYSTEM_STRING} {SURVEY_STRING} NOT FOUND')
     return False
-
   time_now = datetime.now().isoformat()
   time_now_string = f"{time_now}Z"
   time_now_dt = datetime.strptime(time_now_string, "%Y-%m-%dT%H:%M:%S.%fZ")
   expiration = BEST_SURVEY['expiration']
   expiration_dt = datetime.strptime(expiration, "%Y-%m-%dT%H:%M:%S.%fZ")
   remaining_time_dt = expiration_dt - time_now_dt 
-
   print(f'{INFO_STRING} {SYSTEM_STRING} {SURVEY_STRING} {remaining_time_dt} REMAINING')
-
   if remaining_time_dt < SURVEY_AGE_TOLERANCE:
     #print(f'{WARN_STRING} {SYSTEM_STRING} {SURVEY_STRING} EXPIRES SOON')
     purge_expired_survey()
@@ -346,20 +381,19 @@ def perform_survey(shipSymbol):
   if is_best_survey_expired():
     purge_expired_survey
   r = requests.post(f'{BASE_URL}/my/ships/{shipSymbol}/survey', headers=DEFAULT_HEADERS) 
+  global HTTP_CALL_COUNTER
+  HTTP_CALL_COUNTER += 1
   json_object = r.json()
-
-
   if r.status_code == 201:
-     
     return json_object
   else:
     print(json_object['error']['message'])
 
-
-
 def extract_resources_with_survey(get_ship_json, survey):
   shipSymbol = get_ship_json['data']['symbol']
   r = requests.post(f'{BASE_URL}/my/ships/{shipSymbol}/extract/survey', json=survey, headers=DEFAULT_HEADERS) 
+  global HTTP_CALL_COUNTER
+  HTTP_CALL_COUNTER += 1
   json_object = r.json()
   if r.status_code != 201:
     print(json_object['error']['message'])
@@ -376,13 +410,7 @@ def extract_resources_with_survey(get_ship_json, survey):
       if mined_symbol == garbageSymbol:
         jettison_cargo(get_ship_json, mined_symbol, units)
 
-    
-    
-
-
-
 def how_much_of_x_does_ship_have_in_cargo(get_ship_json, cargoSymbol):
-  
   shipSymbol = get_ship_json['data']['symbol']
   inventory = get_ship_json['data']['cargo']['inventory']
   for item in inventory:
@@ -421,7 +449,7 @@ def fish_for(shipSymbol, cargoSymbol):
     rounded_ratio = round(ratio, 2)
 
     if ratio > BEST_SURVEY_SCORE:
-      print(f'{INFO_STRING} {shipSymbol} {SURVEY_STRING} RESULT {rounded_ratio} NEW BEST')
+      print(f'{INFO_STRING} {shipSymbol} {SURVEY_STRING} SAYS {rounded_ratio} NEW BEST')
       BEST_SURVEY = survey
       BEST_SURVEY_SCORE = round(rounded_ratio, 2)
     else:
@@ -477,25 +505,41 @@ def is_ship_in_transit(get_ship_json):
     print(f'{INFO_STRING} {shipSymbol} {TRANSIT_STRING} IN_TRANSIT')
     return True
   return False
-  
-def is_ship_cooling_down(get_ship_json):   
+
+def is_ship_docked(get_ship_json):
+  status = get_ship_json['data']['nav']['status']
+  shipSymbol = get_ship_json['data']['symbol']
+  if status == "DOCKED":
+    print(f'{INFO_STRING} {shipSymbol} {TRANSIT_STRING} DOCKED')
+    return True
+  return False  
+
+def is_ship_ready(get_ship_json):   
   shipSymbol = get_ship_json['data']['symbol']
   remainingSeconds = get_ship_json['data']['cooldown']['remainingSeconds']
-  if remainingSeconds != 0: 
-    print(f'{WARN_STRING} {shipSymbol} {COOLDOWN_STRING} {remainingSeconds} SECONDS REMAINING')
+  if remainingSeconds == 0:
+    if is_ship_in_transit(get_ship_json):
+      return False 
     return True
-  else:
-    return False
-  
+  print(f'{WARN_STRING} {shipSymbol} {COOLDOWN_STRING} {remainingSeconds} SECONDS REMAINING')
+  return False
+
+def status_report(get_ship_json):
+  shipSymbol = get_ship_json['data']['symbol']
+  remaining_fuel = get_ship_json['data']['fuel']['current']
+  fuel_capacity = get_ship_json['data']['fuel']['capacity']
+  status = get_ship_json['data']['nav']['status']
+  max_capacity = get_ship_json['data']['cargo']['capacity']
+  cargo_units = get_ship_json['data']['cargo']['units']
+  print(f'{INFO_STRING} {shipSymbol} {REPORTING_STRING} ')
+  print(f'{INFO_STRING} {shipSymbol} {FUEL_STRING} {remaining_fuel}/{fuel_capacity}')
+  print(f'{INFO_STRING} {shipSymbol} {CARGO_STRING} {cargo_units}/{max_capacity}')
 
 def does_ship_need_refuel(get_ship_json):
   shipSymbol = get_ship_json['data']['symbol']
   remaining_fuel = get_ship_json['data']['fuel']['current']
   fuel_capacity = get_ship_json['data']['fuel']['capacity']
-  remaining_fuel_percentage = (remaining_fuel / fuel_capacity) * 100
- 
-  print(f'{INFO_STRING} {shipSymbol} {FUEL_STRING} {remaining_fuel_percentage}%')
- 
+  remaining_fuel_percentage = (remaining_fuel / fuel_capacity) * 100 
   if remaining_fuel_percentage < REFUEL_PERCENT_THRESHOLD:
     return True
   return False
@@ -507,16 +551,15 @@ def basic_mining_loop(get_ship_json):
   print(f'{INFO_STRING} {shipSymbol} {ASSIGNMENT_STRING} MINING')
 
   if is_ship_already_at_waypoint(get_ship_json, CONTRACT_DELIVERY_LOCATION):
-    dock(get_ship_json)
-    if does_ship_need_refuel:
-      refuel(get_ship_json)
+    if not is_ship_docked(get_ship_json):
+      dock(get_ship_json)
+
     if not is_ship_empty(get_ship_json):      
       for cargoSymbol in SALE_GOODS:
         sell(get_ship_json, cargoSymbol, how_much_of_x_does_ship_have_in_cargo(get_ship_json, cargoSymbol))
-    else:
-      # ship is at DELIVERY waypoint, but its cargo hold is NOT full
-      orbit(get_ship_json)
-      move(get_ship_json, CONTRACT_ASTEROID_LOCATION)
+    orbit(get_ship_json)
+    move(get_ship_json, CONTRACT_ASTEROID_LOCATION)
+
   else:
     #ship is not at DELIVERY waypoint
     if is_ship_already_at_waypoint(get_ship_json, CONTRACT_ASTEROID_LOCATION):
@@ -535,14 +578,18 @@ def basic_mining_loop(get_ship_json):
   
 def basic_survey_loop(get_ship_json):
   shipSymbol = get_ship_json['data']['symbol']
-  print(f'{INFO_STRING} {SURVEY_SHIP} {ASSIGNMENT_STRING} SURVEYING')
+  #print(f'{INFO_STRING} {shipSymbol} basic_survey_loop')
+
+  #if does_ship_need_refuel(get_ship_json):
+    
+ 
   if is_ship_already_at_waypoint(get_ship_json, CONTRACT_ASTEROID_LOCATION):
     #print(f'{INFO_STRING} {shipSymbol} IS ALREADY AT {CONTRACT_ASTEROID_LOCATION}')
     if is_ship_in_orbit(get_ship_json):
-      fish_for(shipSymbol, 'ALUMINUM_ORE')
+      fish_for(shipSymbol, CONTRACT_MINERAL)
     else:
       orbit(get_ship_json)
-      fish_for(shipSymbol, 'ALUMINUM_ORE')
+      fish_for(shipSymbol, CONTRACT_MINERAL)
   else:
     print(f'{INFO_STRING} {shipSymbol} | IS NOT AT {CONTRACT_ASTEROID_LOCATION}')
     orbit(get_ship_json)
@@ -572,34 +619,54 @@ def basic_command_loop(command_ship_json):
 # MAIN
 turn = 0
 
+
+
 while True:
+
+  # increment turn number
   turn += 1
+
+  # reset per turn HTTP CALL COUNTER
+  
+  HTTP_CALL_COUNTER = 0
+
+  # inform the user that the turn is beginning
   print(f'{INFO_STRING} TURN {turn} {TURN_STRING} START')
 
   # survey ship main
   survey_ship_status = get_ship(SURVEY_SHIP)
   survey_ship_json = json.loads(survey_ship_status)
-  if not is_ship_cooling_down(survey_ship_json):
-    if not is_ship_in_transit(survey_ship_json):
+  status_report(survey_ship_json)
+  if is_ship_ready(survey_ship_json):
+      print(f'{INFO_STRING} {SURVEY_SHIP} {ASSIGNMENT_STRING} SURVEYING')
       basic_survey_loop(survey_ship_json)
 
   # command ship main
   command_ship_status = get_ship(COMMAND_SHIP)
   command_ship_json = json.loads(command_ship_status)
-  if not is_ship_cooling_down(command_ship_json):
-    if not is_ship_in_transit(command_ship_json):
+  status_report(command_ship_json)
+  if is_ship_ready(command_ship_json):
+    if does_ship_need_refuel(command_ship_json):
+        dock(command_ship_json)
+        refuel(command_ship_json)
+    else:
       basic_command_loop(command_ship_json)
   
   # mining ship main
   for ship in mining_ships:
     mining_ship_status = get_ship(ship)
     mining_ship_json = json.loads(mining_ship_status)
-    if not is_ship_cooling_down(mining_ship_json):
-      if not is_ship_in_transit(mining_ship_json):
+    status_report(mining_ship_json)
+    if is_ship_ready(mining_ship_json):
+      if does_ship_need_refuel(mining_ship_json):
+        dock(mining_ship_json)
+        refuel(mining_ship_json)
+      else:
         basic_mining_loop(mining_ship_json)
     
-  print (f"""{INFO_STRING} TURN {turn} {TURN_STRING} END
-  
+  print (f'{INFO_STRING} TURN {turn} {TURN_STRING} END')
+  print (f'{INFO_STRING} HTTP CALLS {HTTP_CALL_COUNTER/2}/m')
+  print (f"""
 
 
                                          """)
