@@ -536,7 +536,7 @@ def basic_survey_loop(get_ship_json):
   shipSymbol = get_ship_json['data']['symbol']
   #print(f'{INFO_STRING} {shipSymbol} basic_survey_loop')
 
-  if does_ship_need_refuel(get_ship_json):
+  #if does_ship_need_refuel(get_ship_json):
     
  
   if is_ship_already_at_waypoint(get_ship_json, CONTRACT_ASTEROID_LOCATION):
