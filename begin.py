@@ -11,7 +11,7 @@ FACTION  = 'COSMIC'
 ###
 
 INFO_STRING  = 'INFO  |'
-ORCHESTRATOR_STRING = 'ORCHESTRATOR |'
+ORCHESTRATOR_STRING = 'ORCHESTRATOR'
 CONTENT_TYPE = 'application/json'
 AUTHORIZATION_TOKEN_FILE_PATH = f'{CALLSIGN}_token.txt'
 
@@ -69,6 +69,11 @@ PROBE_SHIP = f'{CALLSIGN}-2'
 mining_ships = [f'{CALLSIGN}-3']
 SURVEY_SHIP = f'{CALLSIGN}-4'
 
+BEST_SURVEY = ''
+BEST_SURVEY_SCORE = 0.00
+
+HTTP_CALL_COUNTER = 0
+
 # These get populated
 HEADQUARTERS = ''
 APPLICATION_HEADER = {'Content-Type': f"{CONTENT_TYPE}" }
@@ -79,13 +84,29 @@ def write_new_auth_token_file(payload):
   AUTH_TOKEN_FILE_WRITE.close()
   print(f'{INFO_STRING} {ORCHESTRATOR_STRING} WROTE NEW AUTH FILE')
 
-# These should be populated once on begin by contract()
-CONTRACT_DELIVERY_LOCATION = 'X1-KK49-H56'
-CONTRACT_ASTEROID_LOCATION = 'X1-KK49-BD5X'
-CONTRACT_ID = 'clshregbn001ks60cje4upb6g'
-CONTRACT_MINERAL = 'ALUMINUM_ORE'
-BEST_SURVEY = ''
-BEST_SURVEY_SCORE = 0.00
+
+
+def populate_contract_globals():
+  response = requests.get(f'{BASE_URL}/my/contracts', headers=DEFAULT_HEADERS) 
+  global HTTP_CALL_COUNTER
+  HTTP_CALL_COUNTER += 1
+  json_object = response.json()
+
+
+
+  global CONTRACT_ID
+  CONTRACT_ID = json_object['data'][0]['id']
+
+  global CONTRACT_HAS_BEEN_COMPLETED
+  CONTRACT_HAS_BEEN_COMPLETED = json_object['data'][0]['fulfilled']
+
+  global CONTRACT_DELIVERY_LOCATION
+  CONTRACT_DELIVERY_LOCATION = json_object['data'][0]['terms']['deliver'][0]['destinationSymbol']
+
+  global CONTRACT_MINERAL
+  CONTRACT_MINERAL = json_object['data'][0]['terms']['deliver'][0]['tradeSymbol']
+
+
 
 # This is user discretion. What are you looking for?
 GARBAGE = ['QUARTZ_SAND', 'ICE_WATER', 'SILICON_CRYSTALS']
@@ -147,16 +168,6 @@ def waypoint(systemSymbol, waypointSymbol):
   global HTTP_CALL_COUNTER
   HTTP_CALL_COUNTER += 1
   prettyprint(r.text)
-
-def contract():
-  r = requests.get(f'{BASE_URL}/my/contracts', headers=DEFAULT_HEADERS) 
-  global HTTP_CALL_COUNTER
-  HTTP_CALL_COUNTER += 1
-  json_object = r.json()
-  contract_id = json_object['data'][0]['id']
-  print(r.text)
-  print(contract_id)
-  return(contract_id)
 
 def accept_contract(contract_id):
   r = requests.post(f'{BASE_URL}/my/contracts/{contract_id}/accept', headers=DEFAULT_HEADERS) 
@@ -225,8 +236,8 @@ def find_nearby_asteroid(systemSymbol):
   HTTP_CALL_COUNTER += 1
   json_object = json.loads(r.text)
   data = json_object['data']
-  for item in data:
-    print(item["symbol"])
+  item = data[0]['symbol']
+  return item
 
 def my_ships():
   r = requests.get(f'{BASE_URL}/my/ships', headers=DEFAULT_HEADERS)
@@ -571,7 +582,7 @@ def does_ship_need_refuel(get_ship_json):
   return False
     
 
-def basic_mining_loop(get_ship_json):
+def basic_mining_loop(get_ship_json, asteroid_location):
 
   shipSymbol = get_ship_json['data']['symbol'] 
   print(f'{INFO_STRING} {shipSymbol} {ASSIGNMENT_STRING} MINING')
@@ -584,11 +595,11 @@ def basic_mining_loop(get_ship_json):
       for cargoSymbol in SALE_GOODS:
         sell(get_ship_json, cargoSymbol, how_much_of_x_does_ship_have_in_cargo(get_ship_json, cargoSymbol))
     orbit(get_ship_json)
-    move(get_ship_json, CONTRACT_ASTEROID_LOCATION)
+    move(get_ship_json, asteroid_location)
 
   else:
     #ship is not at DELIVERY waypoint
-    if is_ship_already_at_waypoint(get_ship_json, CONTRACT_ASTEROID_LOCATION):
+    if is_ship_already_at_waypoint(get_ship_json, asteroid_location):
       # ship is at ASTEROID waypoint
       if is_ship_full(get_ship_json):
         # and has a full hold
@@ -602,33 +613,27 @@ def basic_mining_loop(get_ship_json):
       else:
         print(f'{WARN_STRING} {shipSymbol} {MINING_STRING} NO SURVEY NO POINT')
   
-def basic_survey_loop(get_ship_json):
+def basic_survey_loop(get_ship_json, asteroid_location):
   shipSymbol = get_ship_json['data']['symbol']
-  #print(f'{INFO_STRING} {shipSymbol} basic_survey_loop')
-
-  #if does_ship_need_refuel(get_ship_json):
-    
- 
-  if is_ship_already_at_waypoint(get_ship_json, CONTRACT_ASTEROID_LOCATION):
-    #print(f'{INFO_STRING} {shipSymbol} IS ALREADY AT {CONTRACT_ASTEROID_LOCATION}')
+  if is_ship_already_at_waypoint(get_ship_json, asteroid_location):
     if is_ship_in_orbit(get_ship_json):
       fish_for(shipSymbol, CONTRACT_MINERAL)
     else:
       orbit(get_ship_json)
       fish_for(shipSymbol, CONTRACT_MINERAL)
   else:
-    print(f'{INFO_STRING} {shipSymbol} | IS NOT AT {CONTRACT_ASTEROID_LOCATION}')
+    print(f'{INFO_STRING} {shipSymbol} | IS NOT AT {asteroid_location}')
     orbit(get_ship_json)
-    move(get_ship_json, CONTRACT_ASTEROID_LOCATION)
+    move(get_ship_json, asteroid_location)
     
 def basic_command_loop(command_ship_json):
   shipSymbol = command_ship_json['data']['symbol']
   if BEST_SURVEY_SCORE < COMMAND_SHIP_DO_I_MINE_TOLERANCE:
     print(f'{INFO_STRING} {shipSymbol} {ASSIGNMENT_STRING} SURVEYING BECAUSE SURVEY BAD')
-    basic_survey_loop(command_ship_json)
+    basic_survey_loop(command_ship_json, CONTRACT_ASTEROID_LOCATION)
   else:
     print(f'{INFO_STRING} {shipSymbol} {ASSIGNMENT_STRING} MINING BECAUSE SURVEY GOOD')
-    basic_mining_loop(command_ship_json)
+    basic_mining_loop(command_ship_json, CONTRACT_ASTEROID_LOCATION)
 
 
 # Pre-main for ad-hoc tests
@@ -641,6 +646,20 @@ def basic_command_loop(command_ship_json):
 
 # Early exit for when Pre-main is in use.
 #exit()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # MAIN
 turn = 0
@@ -659,6 +678,14 @@ else:
   read_existing_auth_token_file_into_memory()
 
 
+populate_contract_globals()
+
+
+result = get_ship(COMMAND_SHIP)
+json_object = json.loads(result)
+CURRENT_SYSTEM = json_object['data']['nav']['systemSymbol']
+CONTRACT_ASTEROID_LOCATION = find_nearby_asteroid(CURRENT_SYSTEM)
+
 # This will happen every turn.
 while True:
 
@@ -666,25 +693,13 @@ while True:
   turn += 1
 
   # reset per turn HTTP CALL COUNTER
-  
   HTTP_CALL_COUNTER = 0
 
   # inform the user that the turn is beginning
   print(f'{INFO_STRING} TURN {turn} {TURN_STRING} START')
-  # survey ship main
-  if HAS_SURVEYOR_BEEN_PURCHASED:
-    survey_ship_status = get_ship(SURVEY_SHIP)
-    survey_ship_json = json.loads(survey_ship_status)
-    status_report(survey_ship_json)
-    if is_ship_ready(survey_ship_json):
-        print(f'{INFO_STRING} {SURVEY_SHIP} {ASSIGNMENT_STRING} SURVEYING')
-        basic_survey_loop(survey_ship_json)
-
-
 
 
   # Command ship main
-
   command_ship_status = get_ship(COMMAND_SHIP)
   command_ship_json = json.loads(command_ship_status)
   
@@ -695,7 +710,16 @@ while True:
         refuel(command_ship_json)
     else:
       basic_command_loop(command_ship_json)
-  
+
+
+  # survey ship main
+  if HAS_SURVEYOR_BEEN_PURCHASED:
+    survey_ship_status = get_ship(SURVEY_SHIP)
+    survey_ship_json = json.loads(survey_ship_status)
+    status_report(survey_ship_json)
+    if is_ship_ready(survey_ship_json):
+        print(f'{INFO_STRING} {SURVEY_SHIP} {ASSIGNMENT_STRING} SURVEYING')
+        basic_survey_loop(survey_ship_json, CONTRACT_ASTEROID_LOCATION)
 
   # mining ship main
   if HAS_FIRST_MINER_BEEN_PURCHASED:
@@ -708,7 +732,7 @@ while True:
           dock(mining_ship_json)
           refuel(mining_ship_json)
         else:
-          basic_mining_loop(mining_ship_json)
+          basic_mining_loop(mining_ship_json, CONTRACT_ASTEROID_LOCATION)
     
   print (f'{INFO_STRING} TURN {turn} {TURN_STRING} END')
   print (f' ')
