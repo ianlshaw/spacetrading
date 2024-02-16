@@ -3,6 +3,35 @@ import json
 import time
 import io
 from datetime import datetime,timedelta  
+import os.path
+
+###
+CALLSIGN = 'TVRJ-TEST-134'
+FACTION  = 'COSMIC'
+###
+
+INFO_STRING  = 'INFO  |'
+ORCHESTRATOR_STRING = 'ORCHESTRATOR |'
+CONTENT_TYPE = 'application/json'
+AUTHORIZATION_TOKEN_FILE_PATH = f'{CALLSIGN}_token.txt'
+
+def does_token_authorization_token_file_exist():
+  if os.path.isfile(AUTHORIZATION_TOKEN_FILE_PATH):
+    return True
+  return False
+  
+def read_existing_auth_token_file_into_memory():
+  AUTH_TOKEN_FILE_READ  = open(AUTHORIZATION_TOKEN_FILE_PATH, 'r', newline='' )
+  global AUTHORIZATION_TOKEN
+  AUTHORIZATION_TOKEN = AUTH_TOKEN_FILE_READ.read().rstrip()
+  global DEFAULT_HEADERS
+  DEFAULT_HEADERS = {'Content-Type': f"{CONTENT_TYPE}", 'Authorization': f"Bearer {AUTHORIZATION_TOKEN}" }
+  
+
+
+
+
+
 
 
 COMMAND_SHIP_DO_I_MINE_TOLERANCE = 0.5
@@ -10,12 +39,17 @@ REFUEL_PERCENT_THRESHOLD = 50
 SURVEY_AGE_TOLERANCE = timedelta(minutes=3)
 TURN_TIMER = 120
 
-INFO_STRING  = 'INFO  |'
+HAS_SURVEYOR_BEEN_PURCHASED = False
+HAS_FIRST_MINER_BEEN_PURCHASED = False
+HAS_HAULER_BEEN_PURCHASED = False
+
+
 WARN_STRING  = 'WARN  |'
 ERROR_STRING = 'ERROR |'
 
-SYSTEM_STRING     = 'SYSTEM'
-TURN_STRING       = '|============|'
+
+TURN_STRING       = '|------------------------'
+
 MINING_STRING     = '| MINING     |'
 ASSIGNMENT_STRING = '| ASSIGNMENT |'
 TRANSIT_STRING    = '| TRANSIT    |'
@@ -28,22 +62,22 @@ REPORTING_STRING  = '| REPORTING  |'
 
 
 
-
-CONTENT_TYPE = 'application/json'
 BASE_URL = 'https://api.spacetraders.io/v2'
 
-mining_ships = ['TVRJ-3']
-COMMAND_SHIP = 'TVRJ-1'
-PROBE_SHIP = 'TVRJ-2'
-system = 'X1-KK49'
-SURVEY_SHIP = 'TVRJ-4'
+COMMAND_SHIP = f'{CALLSIGN}-1'
+PROBE_SHIP = f'{CALLSIGN}-2'
+mining_ships = [f'{CALLSIGN}-3']
+SURVEY_SHIP = f'{CALLSIGN}-4'
 
-authorization_token_file_path = 'auth_token.txt'
-authorization_token_file_descriptor = io.open(authorization_token_file_path, 'r', newline='' )
-AUTHORIZATION_TOKEN = authorization_token_file_descriptor.read().rstrip()
-
-DEFAULT_HEADERS = {'Content-Type': f"{CONTENT_TYPE}", 'Authorization': f"Bearer {AUTHORIZATION_TOKEN}" }
+# These get populated
+HEADQUARTERS = ''
 APPLICATION_HEADER = {'Content-Type': f"{CONTENT_TYPE}" }
+
+def write_new_auth_token_file(payload):
+  AUTH_TOKEN_FILE_WRITE = open(AUTHORIZATION_TOKEN_FILE_PATH, 'w', newline='' )
+  AUTH_TOKEN_FILE_WRITE.write(payload)
+  AUTH_TOKEN_FILE_WRITE.close()
+  print(f'{INFO_STRING} {ORCHESTRATOR_STRING} WROTE NEW AUTH FILE')
 
 # These should be populated once on begin by contract()
 CONTRACT_DELIVERY_LOCATION = 'X1-KK49-H56'
@@ -56,7 +90,6 @@ BEST_SURVEY_SCORE = 0.00
 # This is user discretion. What are you looking for?
 GARBAGE = ['QUARTZ_SAND', 'ICE_WATER', 'SILICON_CRYSTALS']
 SALE_GOODS = ['COPPER_ORE', 'IRON_ORE', 'ALUMINUM_ORE']
-
 
 def prettyprint(blob):
   json_object = json.loads(blob)
@@ -88,16 +121,13 @@ def get_status():
   print(third_richest_agent_in_the_galaxy['credits'])
 
 def create_agent():
-  payload = {"symbol": "TVRJ", "faction": "COSMIC" }
+  payload = {"symbol": CALLSIGN, "faction": FACTION }
   r = requests.post(f'{BASE_URL}/register', json=payload, headers=APPLICATION_HEADER)
-  global HTTP_CALL_COUNTER
-  HTTP_CALL_COUNTER += 1
-  print(r.text)
+  json_object = r.json()
+  AUTHORIZATION_TOKEN = json_object['data']['token']
+  write_new_auth_token_file(AUTHORIZATION_TOKEN)
 
-
-  if r.status_code != 200:
-    json_object = r.json()
-    print(json_object['error']['message'])
+# early exit to test new CALLSIGN creation.
 
 def my_agent():
   r = requests.get(f'{BASE_URL}/my/agent', headers=DEFAULT_HEADERS)
@@ -108,15 +138,10 @@ def my_agent():
   symbol = json_object['data']['symbol']
   credits = json_object['data']['credits']
   shipCount = json_object['data']['shipCount']
-  print(f'Welcome back, {symbol}')
-  print('')
-  print('Balance:')
-  print(credits)
-  print()
-  print('shipCount')
-  print(shipCount)
+  print(f'{symbol}')
+  print(f'Balance: {credits}')
+  print(f'shipCount {shipCount}')
   
-
 def waypoint(systemSymbol, waypointSymbol):
   r = requests.get(f'{BASE_URL}/systems/{systemSymbol}/waypoints/{waypointSymbol}', headers=DEFAULT_HEADERS)
   global HTTP_CALL_COUNTER
@@ -186,11 +211,12 @@ def my_ships():
   prettyprint(r.text)
 
 def get_ship(shipSymbol):
+  if DEFAULT_HEADERS == {}:
+    print(f'{ERROR_STRING} DEFAULT HEADERS NULL - SOMETHING IS DEEPLY WRONG')
+    exit()
   r = requests.get(f'{BASE_URL}/my/ships/{shipSymbol}',  headers=DEFAULT_HEADERS)
   global HTTP_CALL_COUNTER
   HTTP_CALL_COUNTER += 1
-  #prettyprint(r.text)
-
   return r.text
 
 def find_nearby_asteroid(systemSymbol):
@@ -349,9 +375,9 @@ def jettison_cargo(get_ship_json, cargoSymbol, units):
   print(f'{INFO_STRING} {shipSymbol} {MINING_STRING} JETTISONED {units} {cargoSymbol} {capacity}/{max_capacity}')
 
 def is_best_survey_expired():
-  print(f'{INFO_STRING} {SYSTEM_STRING} {SURVEY_STRING} CHECKING EXPIRATION')
+  print(f'{INFO_STRING} {ORCHESTRATOR_STRING} {SURVEY_STRING} CHECKING EXPIRATION')
   if BEST_SURVEY_SCORE == 0.00:
-    print(f'{WARN_STRING} {SYSTEM_STRING} {SURVEY_STRING} NOT FOUND')
+    print(f'{WARN_STRING} {ORCHESTRATOR_STRING} {SURVEY_STRING} NOT FOUND')
     return False
   time_now = datetime.now().isoformat()
   time_now_string = f"{time_now}Z"
@@ -359,13 +385,13 @@ def is_best_survey_expired():
   expiration = BEST_SURVEY['expiration']
   expiration_dt = datetime.strptime(expiration, "%Y-%m-%dT%H:%M:%S.%fZ")
   remaining_time_dt = expiration_dt - time_now_dt 
-  print(f'{INFO_STRING} {SYSTEM_STRING} {SURVEY_STRING} {remaining_time_dt} REMAINING')
+  print(f'{INFO_STRING} {ORCHESTRATOR_STRING} {SURVEY_STRING} {remaining_time_dt} REMAINING')
   if remaining_time_dt < SURVEY_AGE_TOLERANCE:
-    #print(f'{WARN_STRING} {SYSTEM_STRING} {SURVEY_STRING} EXPIRES SOON')
+    #print(f'{WARN_STRING} {ORCHESTRATOR_STRING} {SURVEY_STRING} EXPIRES SOON')
     purge_expired_survey()
     return True
   else:
-    #print(f'{INFO_STRING} {SYSTEM_STRING} {SURVEY_STRING} EXPIRATION WITHIN SURVEY_AGE_TOLERANCE')
+    #print(f'{INFO_STRING} {ORCHESTRATOR_STRING} {SURVEY_STRING} EXPIRATION WITHIN SURVEY_AGE_TOLERANCE')
     return False
 
 def purge_expired_survey():
@@ -373,7 +399,7 @@ def purge_expired_survey():
   global BEST_SURVEY_SCORE
   BEST_SURVEY = ''
   BEST_SURVEY_SCORE = 0.00
-  print(f'{INFO_STRING} {SYSTEM_STRING} {SURVEY_STRING} PURGED BECAUSE EXPIRING')
+  print(f'{INFO_STRING} {ORCHESTRATOR_STRING} {SURVEY_STRING} PURGED BECAUSE EXPIRING')
 
 
 def perform_survey(shipSymbol):
@@ -619,8 +645,21 @@ def basic_command_loop(command_ship_json):
 # MAIN
 turn = 0
 
+# This happens once on startup.
+if does_token_authorization_token_file_exist():
+  print(f'{INFO_STRING} {ORCHESTRATOR_STRING} AUTH FILE FOUND') 
+  print(f'{INFO_STRING} {ORCHESTRATOR_STRING} INITIATE INITIALIZATION')  
+  read_existing_auth_token_file_into_memory()
 
 
+else:
+  print(f'{INFO_STRING} {ORCHESTRATOR_STRING} AUTH FILE ABSENT')
+  print(f'{INFO_STRING} {ORCHESTRATOR_STRING} INITIATE INITIAL INITIALIZATION')  
+  create_agent()
+  read_existing_auth_token_file_into_memory()
+
+
+# This will happen every turn.
 while True:
 
   # increment turn number
@@ -632,18 +671,23 @@ while True:
 
   # inform the user that the turn is beginning
   print(f'{INFO_STRING} TURN {turn} {TURN_STRING} START')
-
   # survey ship main
-  survey_ship_status = get_ship(SURVEY_SHIP)
-  survey_ship_json = json.loads(survey_ship_status)
-  status_report(survey_ship_json)
-  if is_ship_ready(survey_ship_json):
-      print(f'{INFO_STRING} {SURVEY_SHIP} {ASSIGNMENT_STRING} SURVEYING')
-      basic_survey_loop(survey_ship_json)
+  if HAS_SURVEYOR_BEEN_PURCHASED:
+    survey_ship_status = get_ship(SURVEY_SHIP)
+    survey_ship_json = json.loads(survey_ship_status)
+    status_report(survey_ship_json)
+    if is_ship_ready(survey_ship_json):
+        print(f'{INFO_STRING} {SURVEY_SHIP} {ASSIGNMENT_STRING} SURVEYING')
+        basic_survey_loop(survey_ship_json)
 
-  # command ship main
+
+
+
+  # Command ship main
+
   command_ship_status = get_ship(COMMAND_SHIP)
   command_ship_json = json.loads(command_ship_status)
+  
   status_report(command_ship_json)
   if is_ship_ready(command_ship_json):
     if does_ship_need_refuel(command_ship_json):
@@ -652,22 +696,28 @@ while True:
     else:
       basic_command_loop(command_ship_json)
   
+
   # mining ship main
-  for ship in mining_ships:
-    mining_ship_status = get_ship(ship)
-    mining_ship_json = json.loads(mining_ship_status)
-    status_report(mining_ship_json)
-    if is_ship_ready(mining_ship_json):
-      if does_ship_need_refuel(mining_ship_json):
-        dock(mining_ship_json)
-        refuel(mining_ship_json)
-      else:
-        basic_mining_loop(mining_ship_json)
+  if HAS_FIRST_MINER_BEEN_PURCHASED:
+    for ship in mining_ships:
+      mining_ship_status = get_ship(ship)
+      mining_ship_json = json.loads(mining_ship_status)
+      status_report(mining_ship_json)
+      if is_ship_ready(mining_ship_json):
+        if does_ship_need_refuel(mining_ship_json):
+          dock(mining_ship_json)
+          refuel(mining_ship_json)
+        else:
+          basic_mining_loop(mining_ship_json)
     
   print (f'{INFO_STRING} TURN {turn} {TURN_STRING} END')
+  print (f' ')
   print (f'{INFO_STRING} HTTP CALLS {HTTP_CALL_COUNTER/2}/m')
+  my_agent()
   print (f"""
-
+  
 
                                          """)
+
+
   time.sleep(TURN_TIMER)
