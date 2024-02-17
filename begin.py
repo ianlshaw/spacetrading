@@ -6,7 +6,7 @@ from datetime import datetime,timedelta
 import os.path
 
 ###
-CALLSIGN = 'TVRJ-TEST-142'
+CALLSIGN = 'TVRJ-TEST-143'
 FACTION  = 'COSMIC'
 DESIRED_SURVEYOR_SHIPS = 1
 DESIRED_MINING_SHIPS = 1
@@ -623,7 +623,7 @@ def status_report(ship):
   role           = ship['registration']['role']
   location       = ship['nav']['waypointSymbol']
 
-  print(f'{INFO_STRING} ---------------------------------------------')
+  print(f'SPACER|--------------------------------------------------------')
   print(f'{INFO_STRING} {role} | {shipSymbol}')
   print(f'{INFO_STRING} {role} | {shipSymbol} {LOCATION_STRING} {location}')
   print(f'{INFO_STRING} {role} | {shipSymbol} {STATUS_STRING} {status}')
@@ -671,6 +671,7 @@ def purchase_miner():
 
 
 def basic_mining_loop(ship_data, asteroid_location):
+  print('SPACER|--------------------------------------------------------')
   status_report(ship_data)
   shipSymbol = ship_data['symbol'] 
   role = ship_data['registration']['role']
@@ -711,6 +712,7 @@ def basic_mining_loop(ship_data, asteroid_location):
       move(ship_data, CONTRACT_ASTEROID_LOCATION)
 
 def basic_survey_loop(ship_data, asteroid_location):
+  print('SPACER|--------------------------------------------------------')
   status_report(ship_data)
   shipSymbol = ship_data['symbol']
   if is_ship_already_at_waypoint(ship_data, asteroid_location):
@@ -724,6 +726,7 @@ def basic_survey_loop(ship_data, asteroid_location):
     move(ship_data, asteroid_location)
     
 def basic_command_loop(ship_data):
+  print('SPACER|--------------------------------------------------------')
   shipSymbol = ship_data['symbol']
   shipRole   = ship_data['registration']['role']
   if BEST_SURVEY_SCORE < COMMAND_SHIP_DO_I_MINE_TOLERANCE:
@@ -803,7 +806,7 @@ else:
   create_agent()
   read_existing_auth_token_file_into_memory()
 
-print('---------------------------------------------------------------')
+print('SPACER|--------------------------------------------------------')
 
 populate_contract_globals()
 
@@ -838,7 +841,7 @@ while True:
   HTTP_CALL_COUNTER = 0
 
   # inform the user that the turn is beginning
-  print(f'{INFO_STRING} TURN {turn} {TURN_STRING} START')
+  print(f'{INFO_STRING} TURN {turn} {TURN_STRING} START --------------------------')
 
   # probe ship main
   probe_ship_json = get_ship(PROBE_SHIP)
@@ -876,11 +879,10 @@ while True:
         else:
           basic_mining_loop(mining_ship_json, CONTRACT_ASTEROID_LOCATION)
   
-  print(f'{INFO_STRING} ---------------------------------------------------------------')
-  print (f'{INFO_STRING} TURN {turn} {TURN_STRING} END')
-  print (f' ')
-  print (f'{INFO_STRING} HTTP CALLS {HTTP_CALL_COUNTER/2}/m')
-  print(f'{INFO_STRING} ---------------------------------------------------------------')
+  print(f'SPACER|---------------------------------------------------------')
+  print (f'{INFO_STRING} TURN {turn} {TURN_STRING} END -----------------------------')
+  print(f'SPACER|---------------------------------------------------------')
+  print (f'{INFO_STRING} HTTP COST | {HTTP_CALL_COUNTER/2}/m')
 
   my_agent()
 
