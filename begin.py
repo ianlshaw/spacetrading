@@ -6,14 +6,17 @@ from datetime import datetime,timedelta
 import os.path
 
 ###
-CALLSIGN = 'TVRJ-TEST-136'
+CALLSIGN = 'TVRJ-TEST-141'
 FACTION  = 'COSMIC'
-DESIRED_SURVEYORS = 1
-DESIRED_MINING_SHIPS = 5
+DESIRED_SURVEYOR_SHIPS = 1
+DESIRED_MINING_SHIPS = 1
 ###
 
+MINING_SHIPS = []
+SURVEYOR_SHIPS = []
+
 INFO_STRING  = 'INFO  |'
-ORCHESTRATOR_STRING = 'ORCHESTRATOR'
+ORCHESTRATOR_STRING = 'ORCHESTRATOR   '
 CONTENT_TYPE = 'application/json'
 AUTHORIZATION_TOKEN_FILE_PATH = f'{CALLSIGN}_token.txt'
 
@@ -40,10 +43,6 @@ COMMAND_SHIP_DO_I_MINE_TOLERANCE = 0.5
 REFUEL_PERCENT_THRESHOLD = 50
 SURVEY_AGE_TOLERANCE = timedelta(minutes=3)
 TURN_TIMER = 120
-
-HAS_SURVEYOR_BEEN_PURCHASED = False
-HAS_FIRST_MINER_BEEN_PURCHASED = False
-HAS_HAULER_BEEN_PURCHASED = False
 
 
 WARN_STRING  = 'WARN  |'
@@ -115,8 +114,8 @@ def populate_contract_globals():
   CONTRACT_MINERAL = data[0]['terms']['deliver'][0]['tradeSymbol']
 
 def populate_locations(systemSymbol):
-  global SURVEYOR_BUYING_LOCATION
-  SURVEYOR_BUYING_LOCATION = find_shipyard_by_ship_type(CURRENT_SYSTEM, 'SHIP_SURVEYOR')
+  global SURVEYOR_SHIP_BUYING_LOCATION
+  SURVEYOR_SHIP_BUYING_LOCATION = find_shipyard_by_ship_type(CURRENT_SYSTEM, 'SHIP_SURVEYOR')
 
   global MINING_SHIP_BUYING_LOCATION
   MINING_SHIP_BUYING_LOCATION = find_shipyard_by_ship_type(CURRENT_SYSTEM, 'SHIP_MINING_DRONE')
@@ -165,8 +164,9 @@ def get_status():
 def create_agent():
   payload = {"symbol": CALLSIGN, "faction": FACTION }
   r = requests.post(f'{BASE_URL}/register', json=payload, headers=APPLICATION_HEADER)
-  json_object = r.json()
-  AUTHORIZATION_TOKEN = json_object['token']
+  json_object = json.loads(r.text)
+  data = json_object['data']
+  AUTHORIZATION_TOKEN = data['token']
   write_new_auth_token_file(AUTHORIZATION_TOKEN)
 
 # early exit to test new CALLSIGN creation.
@@ -249,13 +249,19 @@ def view_available_ships(systemSymbol, shipyardWaypointSymbol):
 def buy_ship(shipType, shipyardWaypointSymbol):
   payload = {'shipType': f"{shipType}", 'waypointSymbol': f"{shipyardWaypointSymbol}" }
   r = requests.post(f'{BASE_URL}/my/ships', json=payload, headers=DEFAULT_HEADERS) 
+  json_object = json.loads(r.text)
   if r.status_code != 201:
     print('ERROR')
     print(r.text)
     print('ERROR')
+    return r.text
+
   global HTTP_CALL_COUNTER
   HTTP_CALL_COUNTER += 1
+
+
   print(f'{INFO_STRING} PURCHASED {shipType} at {shipyardWaypointSymbol}')
+  return json_object['data']
 
 def my_ships():
   r = requests.get(f'{BASE_URL}/my/ships',  headers=DEFAULT_HEADERS)
@@ -612,10 +618,10 @@ def status_report(ship):
   role           = ship['registration']['role']
   location       = ship['nav']['waypointSymbol']
 
-  print(f'{INFO_STRING} {shipSymbol} | {role}')
-  print(f'{INFO_STRING} {shipSymbol} {LOCATION_STRING} {location}')
-  print(f'{INFO_STRING} {shipSymbol} {FUEL_STRING} {remaining_fuel}/{fuel_capacity}')
-  print(f'{INFO_STRING} {shipSymbol} {CARGO_STRING} {cargo_units}/{max_capacity}')
+  print(f'{INFO_STRING} {role} | {shipSymbol}')
+  print(f'{INFO_STRING} {role} | {LOCATION_STRING} {location}')
+  print(f'{INFO_STRING} {role} | {FUEL_STRING} {remaining_fuel}/{fuel_capacity}')
+  print(f'{INFO_STRING} {role} | {CARGO_STRING} {cargo_units}/{max_capacity}')
   print(f'{INFO_STRING} ---------------------------------------------')
 
 def does_ship_need_refuel(ship_data):
@@ -629,22 +635,36 @@ def does_ship_need_refuel(ship_data):
     
 def is_probe_at_surveyor_buying_location(ship_data):
   shipLocation = ship_data['nav']['waypointSymbol']
-  if shipLocation != SURVEYOR_BUYING_LOCATION:
+  if shipLocation != SURVEYOR_SHIP_BUYING_LOCATION:
+    return False
+  return True
+
+def is_probe_at_mining_ship_buying_location(ship_data):
+  shipLocation = ship_data['nav']['waypointSymbol']
+  if shipLocation != MINING_SHIP_BUYING_LOCATION:
     return False
   return True
 
 def purchase_surveyor():
-  buy_ship('SHIP_SURVEYOR', SURVEYOR_BUYING_LOCATION)
-  global HAS_SURVEYOR_BEEN_PURCHASED
-  HAS_SURVEYOR_BEEN_PURCHASED = True
-  
+  buy_ship_result = buy_ship('SHIP_SURVEYOR', SURVEYOR_SHIP_BUYING_LOCATION)
 
+  global SURVEYOR_SHIPS
+  shipSymbol = buy_ship_result['ship']['symbol']
+  SURVEYOR_SHIPS.append(shipSymbol)
+  print(f'{INFO_STRING} PURCHASED SURVEYOR')
+
+def purchase_miner():
+  buy_ship_result = buy_ship('SHIP_MINING_DRONE', MINING_SHIP_BUYING_LOCATION)
+  global MINING_SHIPS
+  shipSymbol = buy_ship_result['ship']['symbol']
+  MINING_SHIPS.append(shipSymbol)
+  print(f'{INFO_STRING} PURCHASED MINER')
 
 # ROLE LOOPS
 
 
 def basic_mining_loop(ship_data, asteroid_location):
-
+  status_report(ship_data)
   shipSymbol = ship_data['symbol'] 
   print(f'{INFO_STRING} {shipSymbol} {ASSIGNMENT_STRING} MINING')
 
@@ -675,6 +695,7 @@ def basic_mining_loop(ship_data, asteroid_location):
         print(f'{WARN_STRING} {shipSymbol} {MINING_STRING} NO SURVEY NO POINT')
   
 def basic_survey_loop(ship_data, asteroid_location):
+  status_report(ship_data)
   shipSymbol = ship_data['symbol']
   if is_ship_already_at_waypoint(ship_data, asteroid_location):
     if is_ship_in_orbit(ship_data):
@@ -683,36 +704,48 @@ def basic_survey_loop(ship_data, asteroid_location):
       orbit(ship_data)
       fish_for(shipSymbol, CONTRACT_MINERAL)
   else:
-    print(f'{INFO_STRING} {shipSymbol} | IS NOT AT {asteroid_location}')
     orbit(ship_data)
     move(ship_data, asteroid_location)
     
-def basic_command_loop(command_ship_json):
-  shipSymbol = command_ship_json['symbol']
+def basic_command_loop(ship_data):
+  status_report(ship_data)
+  shipSymbol = ship_data['symbol']
+  shipRole   = ship_data['registration']['role']
   if BEST_SURVEY_SCORE < COMMAND_SHIP_DO_I_MINE_TOLERANCE:
-    print(f'{INFO_STRING} {shipSymbol} {ASSIGNMENT_STRING} SURVEYING BECAUSE SURVEY BAD')
-    basic_survey_loop(command_ship_json, CONTRACT_ASTEROID_LOCATION)
+    print(f'{INFO_STRING} {shipRole} | {shipSymbol} {ASSIGNMENT_STRING} SURVEYING BECAUSE SURVEY BAD')
+    basic_survey_loop(ship_data, CONTRACT_ASTEROID_LOCATION)
   else:
-    print(f'{INFO_STRING} {shipSymbol} {ASSIGNMENT_STRING} MINING BECAUSE SURVEY GOOD')
-    basic_mining_loop(command_ship_json, CONTRACT_ASTEROID_LOCATION)
+    print(f'{INFO_STRING} | {shipRole} | {shipSymbol} {ASSIGNMENT_STRING} MINING BECAUSE SURVEY GOOD')
+    basic_mining_loop(ship_data, CONTRACT_ASTEROID_LOCATION)
 
 def basic_probe_loop(ship_data):
-  # IS SURVEYOR PURCHASED?
-  if not HAS_SURVEYOR_BEEN_PURCHASED:
+  status_report(ship_data)
+  shipSymbol = ship_data['symbol']
+  shipRole   = ship_data['registration']['role']
+  if len(SURVEYOR_SHIPS) < DESIRED_SURVEYOR_SHIPS:
     if is_probe_at_surveyor_buying_location(ship_data):
-      
       if is_ship_docked(ship_data):
-        print('purchase_surveyor ')
-        #purchase_surveyor()
+        purchase_surveyor()
       else:
         dock(ship_data)
-        purchase_surveyor()
-    # probe ship is not at surveyor buying location
     else:
       if is_ship_docked(ship_data):
         orbit(ship_data)# goto surveyor
-      
-      move(ship_data, SURVEYOR_BUYING_LOCATION)
+      move(ship_data, SURVEYOR_SHIP_BUYING_LOCATION)
+      print(f'{INFO_STRING} {shipRole} | {shipSymbol} {ASSIGNMENT_STRING} HEADING TO SURVEYOR_SHIP_BUYING_LOCATION')
+
+  if len(MINING_SHIPS) < DESIRED_MINING_SHIPS:
+    if is_probe_at_mining_ship_buying_location(ship_data):
+      if is_ship_docked(ship_data):
+        purchase_miner()
+      else:
+        dock(ship_data)
+  # probe ship is not at surveyor buying location
+    else:
+      if is_ship_docked(ship_data):
+        orbit(ship_data)# goto surveyor
+    
+      move(ship_data, SURVEYOR_SHIP_BUYING_LOCATION)
       print('en route to surveyor boss')
   # buy surveyor
   # find miner
@@ -761,13 +794,16 @@ populate_contract_globals()
 all_ships_json = my_ships()
 for ship in all_ships_json:
   shipSymbol = ship['symbol']
-  status_report(ship)
   CURRENT_SYSTEM = ship['nav']['systemSymbol']
   shipRole = ship['registration']['role']
   if shipRole == 'COMMAND':
     COMMAND_SHIP = shipSymbol
   if shipRole == 'SATELLITE':
     PROBE_SHIP = shipSymbol
+  if shipRole == 'EXCAVATOR':
+    MINING_SHIPS.append(shipSymbol)
+  if shipRole == 'SURVEYOR':
+    SURVEYOR_SHIPS.append(shipSymbol)
 
 populate_locations(CURRENT_SYSTEM)
 
@@ -788,28 +824,14 @@ while True:
   # inform the user that the turn is beginning
   print(f'{INFO_STRING} TURN {turn} {TURN_STRING} START')
 
-  # survey ship main
-  if HAS_SURVEYOR_BEEN_PURCHASED:
-    survey_ship_json = get_ship(SURVEY_SHIP)
-    
-    if is_ship_ready(survey_ship_json):
-        print(f'{INFO_STRING} {SURVEY_SHIP} {ASSIGNMENT_STRING} SURVEYING')
-        basic_survey_loop(survey_ship_json, CONTRACT_ASTEROID_LOCATION)
-  
-  
-
+  # probe ship main
   probe_ship_json = get_ship(PROBE_SHIP)
-  
-  
   if is_ship_ready(probe_ship_json):
     basic_probe_loop(probe_ship_json)
 
 
-
   # Command ship main
   command_ship_json = get_ship(COMMAND_SHIP)
-  
-
   if is_ship_ready(command_ship_json):
     if does_ship_need_refuel(command_ship_json):
         dock(command_ship_json)
@@ -817,11 +839,22 @@ while True:
     else:
       basic_command_loop(command_ship_json)
 
+  # surveyor ship main
+  if len(SURVEYOR_SHIPS) > 0:
+    for ship in SURVEYOR_SHIPS:
+      surveyor_ship_data = get_ship(ship)
+      if is_ship_ready(surveyor_ship_data):
+        if does_ship_need_refuel(surveyor_ship_data):
+          dock(surveyor_ship_data)
+          refuel(surveyor_ship_data)
+        else:
+          basic_survey_loop(surveyor_ship_data, CONTRACT_ASTEROID_LOCATION)
+
+
   # mining ship main
-  if HAS_FIRST_MINER_BEEN_PURCHASED:
-    for ship in mining_ships:
-      mining_ship_status = get_ship(ship)
-      mining_ship_json = json.loads(mining_ship_status)
+  if len(MINING_SHIPS) > 0:
+    for ship in MINING_SHIPS:
+      mining_ship_json = get_ship(ship)
       if is_ship_ready(mining_ship_json):
         if does_ship_need_refuel(mining_ship_json):
           dock(mining_ship_json)
