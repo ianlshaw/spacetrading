@@ -1,15 +1,20 @@
 # spacetrading
 
-This repository houses an automated script used to play the game spacetraders api
+This is an automated script used to play the game spacetraders api
+
+REQUIREMENTS:
+- python3
+- requests library
+
+USAGE:
+Modify value of `CALLSIGN` variable in `begin.py` to your desired CALLSIGN.
+
+Run `python3 begin.py`
 
 It will:
   - Purchase a SURVEYOR
-  - Purchase an EXCAVATOR
-  - Survey, Mine and Deliver goods required for starter contract
+  - Purchase a MINING_SHIP
+  - Survey, mine and deliver goods required for starter contract
 
-After that is done.
-(Usually around TURN X)
-
-It will:
-  - Purchase as many mining ships as it can
-  - Continue to mine and sell goods indefinitely (until the market collapses)
+After that it will
+  - Continue surveying, mining and selling goods to the MARKETPLACE indefinitely (until the market collapses)
