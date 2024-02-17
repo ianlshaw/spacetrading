@@ -48,7 +48,7 @@ WARN_STRING  = 'WARN  |'
 ERROR_STRING = 'ERROR |'
 
 
-TURN_STRING       = '|------------------------'
+TURN_STRING       = '|--------------'
 
 MINING_STRING     = '| MINING     |'
 ASSIGNMENT_STRING = '| ASSIGNMENT |'
@@ -60,6 +60,7 @@ CARGO_STRING      = '| CARGO      |'
 SOLD_STRING       = '| SOLD       |'
 REPORTING_STRING  = '| REPORTING  |'
 LOCATION_STRING   = '| LOCATION   |'
+STATUS_STRING     = '| STATUS     |'
 
 
 
@@ -168,8 +169,6 @@ def create_agent():
   AUTHORIZATION_TOKEN = data['token']
   write_new_auth_token_file(AUTHORIZATION_TOKEN)
 
-# early exit to test new CALLSIGN creation.
-
 def my_agent():
   r = requests.get(f'{BASE_URL}/my/agent', headers=DEFAULT_HEADERS)
   global HTTP_CALL_COUNTER
@@ -180,9 +179,9 @@ def my_agent():
   symbol = data['symbol']
   credits = data['credits']
   shipCount = data['shipCount']
-  print(f'{symbol}')
-  print(f'Balance: {credits}')
-  print(f'shipCount {shipCount}')
+  print(f'{INFO_STRING} CALLSIGN  | {symbol}')
+  print(f'{INFO_STRING} CREDITS   | {credits}')
+  print(f'{INFO_STRING} SHIPCOUNT | {shipCount}')
   
 def waypoint(systemSymbol, waypointSymbol):
   r = requests.get(f'{BASE_URL}/systems/{systemSymbol}/waypoints/{waypointSymbol}', headers=DEFAULT_HEADERS)
@@ -305,8 +304,7 @@ def orbit(ship_data):
   data = json_object['data']
   status = data['nav']['status']
   nav = data['nav']
-  role = data['registration']['role']
-  print(f'{INFO_STRING} {role} {shipSymbol} {TRANSIT_STRING} {status}')
+  print(f'{INFO_STRING} {shipSymbol} {TRANSIT_STRING} {status}')
 
 def move(ship_data, waypointSymbol):
   shipSymbol = ship_data['symbol']
@@ -373,7 +371,8 @@ def extract(miningShipSymbol):
       units = haul['units']
       max_capacity = data['cargo']['capacity']
       capacity = data['cargo']['units']
-      print(f'{miningShipSymbol} {MINING_STRING} EXTRACTED {units} {mined_symbol} AND IS {capacity}/{max_capacity}')
+      role = data['registration']['role']
+      print(f'{role} {miningShipSymbol} {MINING_STRING} EXTRACTED {units} {mined_symbol} AND IS {capacity}/{max_capacity}')
       
 def view_market_data(systemSymbol, waypointSymbol):
   r = requests.get(f'{BASE_URL}/systems/{systemSymbol}/waypoints/{waypointSymbol}/market', headers=DEFAULT_HEADERS)
@@ -430,7 +429,8 @@ def jettison_cargo(ship_data, cargoSymbol, units):
     message = error['message']
   max_capacity = ship_data['cargo']['capacity']
   capacity = ship_data['cargo']['units']
-  print(f'{INFO_STRING} {shipSymbol} {MINING_STRING} JETTISONED {units} {cargoSymbol} {capacity}/{max_capacity}')
+  role = ship_data['registration']['role']
+  print(f'{INFO_STRING} {role} | {shipSymbol} {MINING_STRING} JETTISONED {units} {cargoSymbol} {capacity}/{max_capacity}')
 
 def is_best_survey_expired():
   #print(f'{INFO_STRING} SURVEY CHECKING EXPIRATION')
@@ -488,7 +488,8 @@ def extract_resources_with_survey(ship_data, survey):
     units = haul['units']
     max_capacity = data['cargo']['capacity']
     capacity = data['cargo']['units']
-    print(f'{INFO_STRING} {shipSymbol} {MINING_STRING} EXTRACTED {units} {mined_symbol} {capacity}/{max_capacity}')
+    role = ship_data['registration']['role']
+    print(f'{INFO_STRING} {role} | {shipSymbol} {MINING_STRING} EXTRACTED {units} {mined_symbol} {capacity}/{max_capacity}')
     for garbageSymbol in GARBAGE:
       if mined_symbol == garbageSymbol:
         jettison_cargo(ship_data, mined_symbol, units)
@@ -532,11 +533,11 @@ def fish_for(shipSymbol, cargoSymbol):
     rounded_ratio = round(ratio, 2)
 
     if ratio > BEST_SURVEY_SCORE:
-      print(f'{INFO_STRING}  {shipSymbol} {SURVEY_STRING} SAYS {rounded_ratio} NEW BEST')
+      print(f'{INFO_STRING} SURVEY SAYS {rounded_ratio} # NEW BEST #')
       BEST_SURVEY = survey
       BEST_SURVEY_SCORE = round(rounded_ratio, 2)
     else:
-      print(f'{INFO_STRING} SURVEY_STRING RESULT FROM {shipSymbol} {rounded_ratio} DOES NOT BEAT {BEST_SURVEY_SCORE}')
+      print(f'{INFO_STRING} SURVEY RESULT {rounded_ratio} DOES NOT BEAT {BEST_SURVEY_SCORE}')
 
 def get_ship_capacity():
   return true
@@ -600,12 +601,13 @@ def is_ship_docked(ship_data):
 def is_ship_ready(ship_data): 
  
   shipSymbol = ship_data['symbol']
+  role = ship_data['registration']['role']
   remainingSeconds = ship_data['cooldown']['remainingSeconds']
   if remainingSeconds == 0:
     if is_ship_in_transit(ship_data):
       return False 
     return True
-  print(f'{WARN_STRING} {shipSymbol} {COOLDOWN_STRING} {remainingSeconds} SECONDS REMAINING')
+  print(f'{WARN_STRING} {role} | {shipSymbol} {COOLDOWN_STRING} {remainingSeconds} SECONDS REMAINING')
   return False
 
 def status_report(ship):
@@ -621,6 +623,7 @@ def status_report(ship):
   print(f'{INFO_STRING} ---------------------------------------------')
   print(f'{INFO_STRING} {role} | {shipSymbol}')
   print(f'{INFO_STRING} {role} | {shipSymbol} {LOCATION_STRING} {location}')
+  print(f'{INFO_STRING} {role} | {shipSymbol} {STATUS_STRING} {status}')
   print(f'{INFO_STRING} {role} | {shipSymbol} {FUEL_STRING} {remaining_fuel}/{fuel_capacity}')
   print(f'{INFO_STRING} {role} | {shipSymbol} {CARGO_STRING} {cargo_units}/{max_capacity}')
 
@@ -670,9 +673,9 @@ def basic_mining_loop(ship_data, asteroid_location):
   print(f'{INFO_STRING} {role} | {shipSymbol} {ASSIGNMENT_STRING} MINING')
 
   if is_ship_already_at_waypoint(ship_data, CONTRACT_DELIVERY_LOCATION):
-    print(f'{INFO_STRING} {role} {shipSymbol} IS ALREADY AT CONTRACT_DELIVERY_LOCATION')
+    print(f'{INFO_STRING} {role} | {shipSymbol} IS ALREADY AT CONTRACT_DELIVERY_LOCATION')
     if not is_ship_docked(ship_data):
-      print(f'{INFO_STRING} {role} {shipSymbol} DOCKING')
+      print(f'{INFO_STRING} {role} | {shipSymbol} DOCKING')
       dock(ship_data)
 
     if not is_ship_empty(ship_data):      
@@ -683,11 +686,13 @@ def basic_mining_loop(ship_data, asteroid_location):
   else:
     #ship is not at DELIVERY waypoint
     if is_ship_already_at_waypoint(ship_data, asteroid_location):
-      print(f'{INFO_STRING} {role} {shipSymbol}  ON SITE AT CONTRACT_ASTEROID_LOCATION')
+      if is_ship_docked(ship_data):
+        orbit(ship_data)
+      print(f'{INFO_STRING} {role} | {shipSymbol} | ON SITE AT CONTRACT_ASTEROID_LOCATION')
       # ship is at ASTEROID waypoint
       if is_ship_full(ship_data):
         # and has a full hold
-        print(f'{INFO_STRING} {role} {shipSymbol} {CARGO_STRING} FULL')
+        print(f'{INFO_STRING} {role} | {shipSymbol} {CARGO_STRING} FULL')
         move(ship_data, CONTRACT_DELIVERY_LOCATION)
 
       if BEST_SURVEY_SCORE > 0.00:
@@ -695,8 +700,12 @@ def basic_mining_loop(ship_data, asteroid_location):
         extract_resources_with_survey(ship_data, BEST_SURVEY)
 
       else:
-        print(f'{WARN_STRING} {shipSymbol} {MINING_STRING} NO SURVEY NO POINT')
-  
+        print(f'{WARN_STRING} {role} | {shipSymbol} {MINING_STRING} NO SURVEY NO POINT')
+    else:
+      if is_ship_docked:
+        orbit(ship_data)
+      move(ship_data, CONTRACT_ASTEROID_LOCATION)
+
 def basic_survey_loop(ship_data, asteroid_location):
   status_report(ship_data)
   shipSymbol = ship_data['symbol']
@@ -715,7 +724,7 @@ def basic_command_loop(ship_data):
   shipSymbol = ship_data['symbol']
   shipRole   = ship_data['registration']['role']
   if BEST_SURVEY_SCORE < COMMAND_SHIP_DO_I_MINE_TOLERANCE:
-    print(f'{INFO_STRING} {shipRole} {shipSymbol} {ASSIGNMENT_STRING} SURVEYING BECAUSE SURVEY BAD')
+    print(f'{INFO_STRING} {shipRole} | {shipSymbol} {ASSIGNMENT_STRING} SURVEYING BECAUSE SURVEY BAD')
     basic_survey_loop(ship_data, CONTRACT_ASTEROID_LOCATION)
   else:
     print(f'{INFO_STRING} {shipRole} {shipSymbol} {ASSIGNMENT_STRING} MINING BECAUSE SURVEY GOOD')
@@ -749,7 +758,8 @@ def basic_probe_loop(ship_data):
         orbit(ship_data)# goto surveyor
     
       move(ship_data, SURVEYOR_SHIP_BUYING_LOCATION)
-      print('en route to surveyor boss')
+      print(f'{INFO_STRING} {shipRole} {shipSymbol} {ASSIGNMENT_STRING} HEADING TO MINER_SHIP_BUYING_LOCATION')
+
   # buy surveyor
   # find miner
   # goto miner
