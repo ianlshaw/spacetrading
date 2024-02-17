@@ -6,7 +6,7 @@ from datetime import datetime,timedelta
 import os.path
 
 ###
-CALLSIGN = 'TVRJ-TEST-141'
+CALLSIGN = 'TVRJ-TEST-142'
 FACTION  = 'COSMIC'
 DESIRED_SURVEYOR_SHIPS = 1
 DESIRED_MINING_SHIPS = 1
@@ -294,6 +294,7 @@ def find_nearby_asteroid(systemSymbol):
 
 def orbit(ship_data):
   shipSymbol = ship_data['symbol']
+  role = ship_data['registration']['role']
   r = requests.post(f'{BASE_URL}/my/ships/{shipSymbol}/orbit', headers=DEFAULT_HEADERS)
   global HTTP_CALL_COUNTER
   HTTP_CALL_COUNTER += 1
@@ -304,10 +305,11 @@ def orbit(ship_data):
   data = json_object['data']
   status = data['nav']['status']
   nav = data['nav']
-  print(f'{INFO_STRING} {shipSymbol} {TRANSIT_STRING} {status}')
+  print(f'{INFO_STRING} {role} | {shipSymbol} {TRANSIT_STRING} {status}')
 
 def move(ship_data, waypointSymbol):
   shipSymbol = ship_data['symbol']
+  role = ship_data['registration']['role']
   payload = {'waypointSymbol': f"{waypointSymbol}" }
   r = requests.post(f'{BASE_URL}/my/ships/{shipSymbol}/navigate', json=payload, headers=DEFAULT_HEADERS) 
   global HTTP_CALL_COUNTER
@@ -321,10 +323,11 @@ def move(ship_data, waypointSymbol):
   destination_symbol = json_object['data']['nav']['route']['destination']['symbol']
   departure_symbol = json_object['data']['nav']['route']['departure']['symbol']
     
-  print(f'{INFO_STRING} {shipSymbol} {TRANSIT_STRING} {departure_symbol} TO {destination_symbol}')
+  print(f'{INFO_STRING} {role} | {shipSymbol} {TRANSIT_STRING} {departure_symbol} TO {destination_symbol}')
 
 def dock(ship_data):
   shipSymbol = ship_data['symbol']
+  role = ship_data['registration']['role']
   r = requests.post(f'{BASE_URL}/my/ships/{shipSymbol}/dock', headers=DEFAULT_HEADERS) 
   global HTTP_CALL_COUNTER
   HTTP_CALL_COUNTER += 1
@@ -334,7 +337,7 @@ def dock(ship_data):
     return
   destination = json_object['data']['nav']['route']['destination']['symbol']
   status = json_object['data']['nav']['status']
-  print(f'{INFO_STRING} {shipSymbol} {TRANSIT_STRING} {status} AT {destination}')
+  print(f'{INFO_STRING} {role} | {shipSymbol} {TRANSIT_STRING} {status} AT {destination}')
 
 def fuel_tank_free_space(ship_data):
   shipSymbol = ship_data['symbol']
@@ -627,6 +630,7 @@ def status_report(ship):
   print(f'{INFO_STRING} {role} | {shipSymbol} {FUEL_STRING} {remaining_fuel}/{fuel_capacity}')
   print(f'{INFO_STRING} {role} | {shipSymbol} {CARGO_STRING} {cargo_units}/{max_capacity}')
 
+
 def does_ship_need_refuel(ship_data):
   shipSymbol = ship_data['symbol']
   remaining_fuel = ship_data['fuel']['current']
@@ -688,7 +692,7 @@ def basic_mining_loop(ship_data, asteroid_location):
     if is_ship_already_at_waypoint(ship_data, asteroid_location):
       if is_ship_docked(ship_data):
         orbit(ship_data)
-      print(f'{INFO_STRING} {role} | {shipSymbol} | ON SITE AT CONTRACT_ASTEROID_LOCATION')
+      print(f'{INFO_STRING} {role} | {shipSymbol} | SITUATION  | ON SITE AT CONTRACT_ASTEROID_LOCATION')
       # ship is at ASTEROID waypoint
       if is_ship_full(ship_data):
         # and has a full hold
@@ -720,14 +724,13 @@ def basic_survey_loop(ship_data, asteroid_location):
     move(ship_data, asteroid_location)
     
 def basic_command_loop(ship_data):
-  status_report(ship_data)
   shipSymbol = ship_data['symbol']
   shipRole   = ship_data['registration']['role']
   if BEST_SURVEY_SCORE < COMMAND_SHIP_DO_I_MINE_TOLERANCE:
     print(f'{INFO_STRING} {shipRole} | {shipSymbol} {ASSIGNMENT_STRING} SURVEYING BECAUSE SURVEY BAD')
     basic_survey_loop(ship_data, CONTRACT_ASTEROID_LOCATION)
   else:
-    print(f'{INFO_STRING} {shipRole} {shipSymbol} {ASSIGNMENT_STRING} MINING BECAUSE SURVEY GOOD')
+    print(f'{INFO_STRING} {shipRole} | {shipSymbol} {ASSIGNMENT_STRING} MINING BECAUSE SURVEY GOOD')
     basic_mining_loop(ship_data, CONTRACT_ASTEROID_LOCATION)
 
 def basic_probe_loop(ship_data):
@@ -800,7 +803,7 @@ else:
   create_agent()
   read_existing_auth_token_file_into_memory()
 
-print('-----------------------------------------------------')
+print('---------------------------------------------------------------')
 
 populate_contract_globals()
 
@@ -872,11 +875,15 @@ while True:
           refuel(mining_ship_json)
         else:
           basic_mining_loop(mining_ship_json, CONTRACT_ASTEROID_LOCATION)
-    
+  
+  print(f'{INFO_STRING} ---------------------------------------------------------------')
   print (f'{INFO_STRING} TURN {turn} {TURN_STRING} END')
   print (f' ')
   print (f'{INFO_STRING} HTTP CALLS {HTTP_CALL_COUNTER/2}/m')
+  print(f'{INFO_STRING} ---------------------------------------------------------------')
+
   my_agent()
+
   print (f"""
   
 
