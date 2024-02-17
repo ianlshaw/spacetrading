@@ -16,7 +16,6 @@ MINING_SHIPS = []
 SURVEYOR_SHIPS = []
 
 INFO_STRING  = 'INFO  |'
-ORCHESTRATOR_STRING = 'ORCHESTRATOR   '
 CONTENT_TYPE = 'application/json'
 AUTHORIZATION_TOKEN_FILE_PATH = f'{CALLSIGN}_token.txt'
 
@@ -89,7 +88,7 @@ def write_new_auth_token_file(payload):
   AUTH_TOKEN_FILE_WRITE = open(AUTHORIZATION_TOKEN_FILE_PATH, 'w', newline='' )
   AUTH_TOKEN_FILE_WRITE.write(payload)
   AUTH_TOKEN_FILE_WRITE.close()
-  print(f'{INFO_STRING} {ORCHESTRATOR_STRING} WROTE NEW AUTH FILE')
+  print(f'{INFO_STRING} WROTE NEW AUTH FILE')
 
 
 
@@ -303,9 +302,11 @@ def orbit(ship_data):
   if r.status_code != 200:
     print(json_object['error']['message'])
     return
-  status = json_object['data']['nav']['status']
-  nav = json_object['data']['nav']
-  print(f'{INFO_STRING} {shipSymbol} {TRANSIT_STRING} {status}')
+  data = json_object['data']
+  status = data['nav']['status']
+  nav = data['nav']
+  role = data['registration']['role']
+  print(f'{INFO_STRING} {role} {shipSymbol} {TRANSIT_STRING} {status}')
 
 def move(ship_data, waypointSymbol):
   shipSymbol = ship_data['symbol']
@@ -432,9 +433,9 @@ def jettison_cargo(ship_data, cargoSymbol, units):
   print(f'{INFO_STRING} {shipSymbol} {MINING_STRING} JETTISONED {units} {cargoSymbol} {capacity}/{max_capacity}')
 
 def is_best_survey_expired():
-  print(f'{INFO_STRING} {ORCHESTRATOR_STRING} {SURVEY_STRING} CHECKING EXPIRATION')
+  #print(f'{INFO_STRING} SURVEY CHECKING EXPIRATION')
   if BEST_SURVEY_SCORE == 0.00:
-    print(f'{WARN_STRING} {ORCHESTRATOR_STRING} {SURVEY_STRING} NOT FOUND')
+    print(f'{WARN_STRING} SURVEY NOT FOUND')
     return False
   time_now = datetime.now().isoformat()
   time_now_string = f"{time_now}Z"
@@ -442,13 +443,13 @@ def is_best_survey_expired():
   expiration = BEST_SURVEY['expiration']
   expiration_dt = datetime.strptime(expiration, "%Y-%m-%dT%H:%M:%S.%fZ")
   remaining_time_dt = expiration_dt - time_now_dt 
-  print(f'{INFO_STRING} {ORCHESTRATOR_STRING} {SURVEY_STRING} {remaining_time_dt} REMAINING')
+  #print(f'{INFO_STRING} {SURVEY_STRING} {remaining_time_dt} REMAINING')
   if remaining_time_dt < SURVEY_AGE_TOLERANCE:
-    #print(f'{WARN_STRING} {ORCHESTRATOR_STRING} {SURVEY_STRING} EXPIRES SOON')
+    print(f'{WARN_STRING} {SURVEY_STRING} EXPIRES SOON')
     purge_expired_survey()
     return True
   else:
-    #print(f'{INFO_STRING} {ORCHESTRATOR_STRING} {SURVEY_STRING} EXPIRATION WITHIN SURVEY_AGE_TOLERANCE')
+    #print(f'{INFO_STRING}  {SURVEY_STRING} EXPIRATION WITHIN SURVEY_AGE_TOLERANCE')
     return False
 
 def purge_expired_survey():
@@ -456,8 +457,7 @@ def purge_expired_survey():
   global BEST_SURVEY_SCORE
   BEST_SURVEY = ''
   BEST_SURVEY_SCORE = 0.00
-  print(f'{INFO_STRING} {ORCHESTRATOR_STRING} {SURVEY_STRING} PURGED BECAUSE EXPIRING')
-
+  print(f'{INFO_STRING}  {SURVEY_STRING} PURGED BECAUSE EXPIRING')
 
 def perform_survey(shipSymbol):
   #print(f'{INFO_STRING} {shipSymbol} perform_survey')
@@ -532,11 +532,11 @@ def fish_for(shipSymbol, cargoSymbol):
     rounded_ratio = round(ratio, 2)
 
     if ratio > BEST_SURVEY_SCORE:
-      print(f'{INFO_STRING} {shipSymbol} {SURVEY_STRING} SAYS {rounded_ratio} NEW BEST')
+      print(f'{INFO_STRING}  {shipSymbol} {SURVEY_STRING} SAYS {rounded_ratio} NEW BEST')
       BEST_SURVEY = survey
       BEST_SURVEY_SCORE = round(rounded_ratio, 2)
     else:
-      print(f'{INFO_STRING} {shipSymbol} {SURVEY_STRING} RESULT {rounded_ratio} DOES NOT BEAT {BEST_SURVEY_SCORE}')
+      print(f'{INFO_STRING} SURVEY_STRING RESULT FROM {shipSymbol} {rounded_ratio} DOES NOT BEAT {BEST_SURVEY_SCORE}')
 
 def get_ship_capacity():
   return true
@@ -618,11 +618,11 @@ def status_report(ship):
   role           = ship['registration']['role']
   location       = ship['nav']['waypointSymbol']
 
-  print(f'{INFO_STRING} {role} | {shipSymbol}')
-  print(f'{INFO_STRING} {role} | {LOCATION_STRING} {location}')
-  print(f'{INFO_STRING} {role} | {FUEL_STRING} {remaining_fuel}/{fuel_capacity}')
-  print(f'{INFO_STRING} {role} | {CARGO_STRING} {cargo_units}/{max_capacity}')
   print(f'{INFO_STRING} ---------------------------------------------')
+  print(f'{INFO_STRING} {role} | {shipSymbol}')
+  print(f'{INFO_STRING} {role} | {shipSymbol} {LOCATION_STRING} {location}')
+  print(f'{INFO_STRING} {role} | {shipSymbol} {FUEL_STRING} {remaining_fuel}/{fuel_capacity}')
+  print(f'{INFO_STRING} {role} | {shipSymbol} {CARGO_STRING} {cargo_units}/{max_capacity}')
 
 def does_ship_need_refuel(ship_data):
   shipSymbol = ship_data['symbol']
@@ -666,10 +666,13 @@ def purchase_miner():
 def basic_mining_loop(ship_data, asteroid_location):
   status_report(ship_data)
   shipSymbol = ship_data['symbol'] 
-  print(f'{INFO_STRING} {shipSymbol} {ASSIGNMENT_STRING} MINING')
+  role = ship_data['registration']['role']
+  print(f'{INFO_STRING} {role} | {shipSymbol} {ASSIGNMENT_STRING} MINING')
 
   if is_ship_already_at_waypoint(ship_data, CONTRACT_DELIVERY_LOCATION):
+    print(f'{INFO_STRING} {role} {shipSymbol} IS ALREADY AT CONTRACT_DELIVERY_LOCATION')
     if not is_ship_docked(ship_data):
+      print(f'{INFO_STRING} {role} {shipSymbol} DOCKING')
       dock(ship_data)
 
     if not is_ship_empty(ship_data):      
@@ -677,14 +680,14 @@ def basic_mining_loop(ship_data, asteroid_location):
         sell(ship_data, cargoSymbol, how_much_of_x_does_ship_have_in_cargo(ship_data, cargoSymbol))
     orbit(ship_data)
     move(ship_data, asteroid_location)
-
   else:
     #ship is not at DELIVERY waypoint
     if is_ship_already_at_waypoint(ship_data, asteroid_location):
+      print(f'{INFO_STRING} {role} {shipSymbol}  ON SITE AT CONTRACT_ASTEROID_LOCATION')
       # ship is at ASTEROID waypoint
       if is_ship_full(ship_data):
         # and has a full hold
-        print(f'{INFO_STRING} {shipSymbol} {CARGO_STRING} FULL')
+        print(f'{INFO_STRING} {role} {shipSymbol} {CARGO_STRING} FULL')
         move(ship_data, CONTRACT_DELIVERY_LOCATION)
 
       if BEST_SURVEY_SCORE > 0.00:
@@ -712,10 +715,10 @@ def basic_command_loop(ship_data):
   shipSymbol = ship_data['symbol']
   shipRole   = ship_data['registration']['role']
   if BEST_SURVEY_SCORE < COMMAND_SHIP_DO_I_MINE_TOLERANCE:
-    print(f'{INFO_STRING} {shipRole} | {shipSymbol} {ASSIGNMENT_STRING} SURVEYING BECAUSE SURVEY BAD')
+    print(f'{INFO_STRING} {shipRole} {shipSymbol} {ASSIGNMENT_STRING} SURVEYING BECAUSE SURVEY BAD')
     basic_survey_loop(ship_data, CONTRACT_ASTEROID_LOCATION)
   else:
-    print(f'{INFO_STRING} | {shipRole} | {shipSymbol} {ASSIGNMENT_STRING} MINING BECAUSE SURVEY GOOD')
+    print(f'{INFO_STRING} {shipRole} {shipSymbol} {ASSIGNMENT_STRING} MINING BECAUSE SURVEY GOOD')
     basic_mining_loop(ship_data, CONTRACT_ASTEROID_LOCATION)
 
 def basic_probe_loop(ship_data):
@@ -732,7 +735,7 @@ def basic_probe_loop(ship_data):
       if is_ship_docked(ship_data):
         orbit(ship_data)# goto surveyor
       move(ship_data, SURVEYOR_SHIP_BUYING_LOCATION)
-      print(f'{INFO_STRING} {shipRole} | {shipSymbol} {ASSIGNMENT_STRING} HEADING TO SURVEYOR_SHIP_BUYING_LOCATION')
+      print(f'{INFO_STRING} {shipRole} {shipSymbol} {ASSIGNMENT_STRING} HEADING TO SURVEYOR_SHIP_BUYING_LOCATION')
 
   if len(MINING_SHIPS) < DESIRED_MINING_SHIPS:
     if is_probe_at_mining_ship_buying_location(ship_data):
@@ -776,14 +779,14 @@ turn = 0
 
 # This happens once on startup.
 if does_token_authorization_token_file_exist():
-  print(f'{INFO_STRING} {ORCHESTRATOR_STRING} AUTH FILE FOUND') 
-  print(f'{INFO_STRING} {ORCHESTRATOR_STRING} INITIATE INITIALIZATION')  
+  print(f'{INFO_STRING} AUTH FILE FOUND') 
+  print(f'{INFO_STRING} INITIATE INITIALIZATION')  
   read_existing_auth_token_file_into_memory()
 
 
 else:
-  print(f'{INFO_STRING} {ORCHESTRATOR_STRING} AUTH FILE ABSENT')
-  print(f'{INFO_STRING} {ORCHESTRATOR_STRING} INITIATE INITIAL INITIALIZATION')  
+  print(f'{INFO_STRING} AUTH FILE ABSENT')
+  print(f'{INFO_STRING} INITIATE INITIAL INITIALIZATION')  
   create_agent()
   read_existing_auth_token_file_into_memory()
 
@@ -829,16 +832,6 @@ while True:
   if is_ship_ready(probe_ship_json):
     basic_probe_loop(probe_ship_json)
 
-
-  # Command ship main
-  command_ship_json = get_ship(COMMAND_SHIP)
-  if is_ship_ready(command_ship_json):
-    if does_ship_need_refuel(command_ship_json):
-        dock(command_ship_json)
-        refuel(command_ship_json)
-    else:
-      basic_command_loop(command_ship_json)
-
   # surveyor ship main
   if len(SURVEYOR_SHIPS) > 0:
     for ship in SURVEYOR_SHIPS:
@@ -850,6 +843,14 @@ while True:
         else:
           basic_survey_loop(surveyor_ship_data, CONTRACT_ASTEROID_LOCATION)
 
+  # Command ship main
+  command_ship_json = get_ship(COMMAND_SHIP)
+  if is_ship_ready(command_ship_json):
+    if does_ship_need_refuel(command_ship_json):
+        dock(command_ship_json)
+        refuel(command_ship_json)
+    else:
+      basic_command_loop(command_ship_json)
 
   # mining ship main
   if len(MINING_SHIPS) > 0:
