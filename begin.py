@@ -6,7 +6,7 @@ from datetime import datetime,timedelta
 import os.path
 
 ###
-CALLSIGN = 'TVRJ-TEST-346'
+CALLSIGN = 'TVRJ-TEST-347'
 FACTION  = 'COSMIC'
 DESIRED_SURVEYOR_SHIPS = 1
 DESIRED_MINING_SHIPS = 1
@@ -117,9 +117,6 @@ def populate_contract_globals():
   global CONTRACT_ACCEPTED
   CONTRACT_ACCEPTED = data[0]['accepted']
 
-  
-
-
 def populate_locations(systemSymbol):
   global SURVEYOR_SHIP_BUYING_LOCATION
   SURVEYOR_SHIP_BUYING_LOCATION = find_shipyard_by_ship_type(CURRENT_SYSTEM, 'SHIP_SURVEYOR')
@@ -132,8 +129,6 @@ def populate_locations(systemSymbol):
 
   global CONTRACT_ASTEROID_LOCATION
   CONTRACT_ASTEROID_LOCATION = find_nearby_asteroid(CURRENT_SYSTEM)
-
-
 
 # This is user discretion. What are you looking for?
 GARBAGE = ['QUARTZ_SAND', 'ICE_WATER', 'SILICON_CRYSTALS']
@@ -194,13 +189,12 @@ def waypoint(systemSymbol, waypointSymbol):
   r = requests.get(f'{BASE_URL}/systems/{systemSymbol}/waypoints/{waypointSymbol}', headers=DEFAULT_HEADERS)
   global HTTP_CALL_COUNTER
   HTTP_CALL_COUNTER += 1
-  #prettyprint(r.text)
 
 def accept_contract(contract_id):
   r = requests.post(f'{BASE_URL}/my/contracts/{contract_id}/accept', headers=DEFAULT_HEADERS) 
   global HTTP_CALL_COUNTER
   HTTP_CALL_COUNTER += 1
-  #prettyprint(r.text)
+  print(f'{INFO_STRING} CONTRACT ACCEPTED')
 
 def find_shipyards(systemSymbol):
   r = requests.get(f'{BASE_URL}/systems/{systemSymbol}/waypoints?traits=SHIPYARD', headers=DEFAULT_HEADERS)
@@ -223,9 +217,6 @@ def find_shipyard_by_ship_type(systemSymbol, shipType):
     for buyableShipType in shipTypes:
       if buyableShipType['type'] == shipType:
         return shipyardSymbol
-
-      
-     
 
 def find_a_market(systemSymbol):
   r = requests.get(f'{BASE_URL}/systems/{systemSymbol}/waypoints?traits=MARKETPLACE', headers=DEFAULT_HEADERS)
@@ -260,11 +251,8 @@ def buy_ship(shipType, shipyardWaypointSymbol):
     print(r.text)
     print('ERROR')
     return r.text
-
   global HTTP_CALL_COUNTER
   HTTP_CALL_COUNTER += 1
-
-
   print(f'{INFO_STRING} PURCHASED | {shipType} at {shipyardWaypointSymbol}')
   return json_object['data']
 
@@ -274,9 +262,6 @@ def my_ships():
   HTTP_CALL_COUNTER += 1
   json_object = json.loads(r.text)
   return(json_object['data'])
-
-
-
 
 def get_ship(shipSymbol):
   if DEFAULT_HEADERS == {}:
@@ -317,7 +302,6 @@ def move(ship_data, waypointSymbol):
   global HTTP_CALL_COUNTER
   HTTP_CALL_COUNTER += 1
   json_object = r.json()
-
   destination_symbol = json_object['data']['nav']['route']['destination']['symbol']
   departure_symbol = json_object['data']['nav']['route']['departure']['symbol']
     
@@ -385,7 +369,6 @@ def view_market_data(systemSymbol, waypointSymbol):
    # print(f'buy@  {item["purchasePrice"]}')
    # print(f'sell@ {item["sellPrice"]}')
 
-      
 def sell(ship_data, goodsSymbol, units):
   shipSymbol = ship_data['symbol']
   role = ship_data['registration']['role']
@@ -440,7 +423,6 @@ def deliver_goods(ship_data, tradeSymbol, units, contractId):
     global HTTP_CALL_COUNTER
     HTTP_CALL_COUNTER += 1
     print(f'{INFO_STRING} {role} {shipSymbol} | DELIVERED | {units} {tradeSymbol} {capacity}/{max_capacity}')
-
     if check_if_contract_is_complete(CONTRACT_ID):
       fulfil_contract(CONTRACT_ID)
       add_contract_mineral_to_sale_goods()
@@ -451,8 +433,6 @@ def fulfil_contract(contractId):
     global HTTP_CALL_COUNTER
     HTTP_CALL_COUNTER += 1
     print(f'{INFO_STRING} CONTRACT COMPLETED')
-
-
 
 def pad_role_string(role_string):
   return role_string.ljust(9, ' ')
@@ -562,14 +542,10 @@ def fish_for(shipSymbol, cargoSymbol):
       mineral_symbol = deposit['symbol']
       if mineral_symbol == cargoSymbol:
         hit_count += 1
-
     ratio = hit_count / deposits_length
-
     global BEST_SURVEY
     global BEST_SURVEY_SCORE
-    
     rounded_ratio = round(ratio, 2)
-
     if ratio > BEST_SURVEY_SCORE:
       print(f'{INFO_STRING} SURVEY  | SAYS {rounded_ratio} # NEW BEST #')
       BEST_SURVEY = survey
@@ -617,7 +593,6 @@ def does_ship_need_to_dump_garbage(ship_data):
     for garbage_item in GARBAGE:
       if item_name == garbage_item:
         return True    
-
   return False
 
 def is_ship_in_transit(ship_data):
@@ -704,18 +679,15 @@ def purchase_miner():
 
 # ROLE LOOPS
 def basic_mining_loop(ship_data, asteroid_location):
-  
   status_report(ship_data)
   shipSymbol = ship_data['symbol'] 
   role = ship_data['registration']['role']
   print(f'{INFO_STRING} {role} | {shipSymbol} {ASSIGNMENT_STRING} MINING')
-
   if is_ship_already_at_waypoint(ship_data, CONTRACT_DELIVERY_LOCATION):
     print(f'{INFO_STRING} {role} | {shipSymbol} IS ALREADY AT CONTRACT_DELIVERY_LOCATION')
     if not is_ship_docked(ship_data):
       print(f'{INFO_STRING} {role} | {shipSymbol} DOCKING')
       dock(ship_data)
-
     if not is_ship_empty(ship_data):
       if not CONTRACT_HAS_BEEN_COMPLETED:
         if how_much_of_x_does_ship_have_in_cargo(ship_data, CONTRACT_MINERAL) > 0:
@@ -735,11 +707,8 @@ def basic_mining_loop(ship_data, asteroid_location):
         # and has a full hold
         print(f'{INFO_STRING} {role} | {shipSymbol} {CARGO_STRING} FULL')
         move(ship_data, CONTRACT_DELIVERY_LOCATION)
-
       if BEST_SURVEY_SCORE > 0.00:
-
         extract_resources_with_survey(ship_data, BEST_SURVEY)
-
       else:
         print(f'{WARN_STRING} {role} | {shipSymbol} {MINING_STRING} NO SURVEY NO POINT')
     else:
@@ -748,7 +717,6 @@ def basic_mining_loop(ship_data, asteroid_location):
       move(ship_data, CONTRACT_ASTEROID_LOCATION)
 
 def basic_survey_loop(ship_data, asteroid_location):
-  
   status_report(ship_data)
   shipSymbol = ship_data['symbol']
   if is_ship_already_at_waypoint(ship_data, asteroid_location):
@@ -762,7 +730,6 @@ def basic_survey_loop(ship_data, asteroid_location):
     move(ship_data, asteroid_location)
     
 def basic_command_loop(ship_data):
-  
   shipSymbol = ship_data['symbol']
   shipRole   = ship_data['registration']['role']
   if BEST_SURVEY_SCORE < COMMAND_SHIP_DO_I_MINE_TOLERANCE:
@@ -802,18 +769,7 @@ def basic_probe_loop(ship_data):
       move(ship_data, SURVEYOR_SHIP_BUYING_LOCATION)
       print(f'{INFO_STRING} {shipRole} {shipSymbol} {ASSIGNMENT_STRING} HEADING TO MINER_SHIP_BUYING_LOCATION')
 
-  # buy surveyor
-  # find miner
-  # goto miner
-  # buy miner
-
-
-
-
-
-
-
-
+ 
 # Pre-main for ad-hoc tests
 
 #result = get_ship('TVRJ-3')
@@ -826,7 +782,6 @@ def basic_probe_loop(ship_data):
 #exit()
 
 
-
 # MAIN
 turn = 0
 
@@ -836,19 +791,15 @@ if does_token_authorization_token_file_exist():
   print(f'{INFO_STRING} INITIATE INITIALIZATION')  
   read_existing_auth_token_file_into_memory()
 
-
 else:
   print(f'{INFO_STRING} AUTH FILE ABSENT')
   print(f'{INFO_STRING} INITIATE INITIAL INITIALIZATION')  
   create_agent()
   read_existing_auth_token_file_into_memory()
 
-
-
 populate_contract_globals()
 
 if not has_contract_been_accepted(CONTRACT_ID):
-  print('accepting contract')
   accept_contract(CONTRACT_ID)
 
 all_ships_json = my_ships()
@@ -865,14 +816,7 @@ for ship in all_ships_json:
   if shipRole == 'SURVEYOR':
     SURVEYOR_SHIPS.append(shipSymbol)
 
-    
-
 populate_locations(CURRENT_SYSTEM)
-
-
-
-
-
 
 # Infinite loop to simulate turns of length TURN_LENGTH
 while True:
@@ -891,8 +835,6 @@ while True:
   if is_ship_ready(probe_ship_json):
     basic_probe_loop(probe_ship_json)
 
-  
-
   # surveyor ship main
   if len(SURVEYOR_SHIPS) > 0:
     for ship in SURVEYOR_SHIPS:
@@ -904,7 +846,6 @@ while True:
         else:
           basic_survey_loop(surveyor_ship_data, CONTRACT_ASTEROID_LOCATION)
 
-
   # Command ship main
   command_ship_json = get_ship(COMMAND_SHIP)
   if is_ship_ready(command_ship_json):
@@ -913,7 +854,6 @@ while True:
         refuel(command_ship_json)
     else:
       basic_command_loop(command_ship_json)
-
 
   # mining ship main
   if len(MINING_SHIPS) > 0:
@@ -926,13 +866,9 @@ while True:
         else:
           basic_mining_loop(mining_ship_json, CONTRACT_ASTEROID_LOCATION)
   
-  
   print (f'{INFO_STRING} TURN {turn} {TURN_STRING} END -----------------------------')
-  
   print (f'{INFO_STRING} HTTP COST | {HTTP_CALL_COUNTER/2}/m')
-
   my_agent()
-  
   print (f"""
   
 
