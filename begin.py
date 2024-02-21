@@ -6,7 +6,7 @@ from datetime import datetime,timedelta
 import os.path
 
 ###
-CALLSIGN = 'TVRJ-TEST-145'
+CALLSIGN = 'TVRJ-TEST-346'
 FACTION  = 'COSMIC'
 DESIRED_SURVEYOR_SHIPS = 1
 DESIRED_MINING_SHIPS = 1
@@ -114,6 +114,12 @@ def populate_contract_globals():
   global CONTRACT_MINERAL
   CONTRACT_MINERAL = data[0]['terms']['deliver'][0]['tradeSymbol']
 
+  global CONTRACT_ACCEPTED
+  CONTRACT_ACCEPTED = data[0]['accepted']
+
+  
+
+
 def populate_locations(systemSymbol):
   global SURVEYOR_SHIP_BUYING_LOCATION
   SURVEYOR_SHIP_BUYING_LOCATION = find_shipyard_by_ship_type(CURRENT_SYSTEM, 'SHIP_SURVEYOR')
@@ -131,7 +137,7 @@ def populate_locations(systemSymbol):
 
 # This is user discretion. What are you looking for?
 GARBAGE = ['QUARTZ_SAND', 'ICE_WATER', 'SILICON_CRYSTALS']
-SALE_GOODS = ['COPPER_ORE', 'IRON_ORE', 'ALUMINUM_ORE']
+SALE_GOODS = ['COPPER_ORE', 'IRON_ORE']
 
 def prettyprint(blob):
   json_object = json.loads(blob)
@@ -259,7 +265,7 @@ def buy_ship(shipType, shipyardWaypointSymbol):
   HTTP_CALL_COUNTER += 1
 
 
-  print(f'{INFO_STRING} PURCHASED {shipType} at {shipyardWaypointSymbol}')
+  print(f'{INFO_STRING} PURCHASED | {shipType} at {shipyardWaypointSymbol}')
   return json_object['data']
 
 def my_ships():
@@ -290,8 +296,6 @@ def find_nearby_asteroid(systemSymbol):
   data = json_object['data']
   item = data[0]['symbol']
   return item
-
-
 
 def orbit(ship_data):
   shipSymbol = ship_data['symbol']
@@ -336,7 +340,8 @@ def fuel_tank_free_space(ship_data):
 
 def refuel(ship_data):
     shipSymbol = ship_data['symbol']
-    print(f'{INFO_STRING} {shipSymbol} {FUEL_STRING} REFUELLING')
+    role = ship_data['registration']['role']
+    print(f'{INFO_STRING} {role} | {shipSymbol} {FUEL_STRING} REFUELLING')
     r = requests.post(f'{BASE_URL}/my/ships/{shipSymbol}/refuel', headers=DEFAULT_HEADERS) 
     global HTTP_CALL_COUNTER
     HTTP_CALL_COUNTER += 1
@@ -345,7 +350,7 @@ def refuel(ship_data):
       data = json_object['data']
       totalPrice = json_object['data']['transaction']['totalPrice']
       units = json_object['data']['transaction']['units']
-      print(f'{INFO_STRING} {shipSymbol} {FUEL_STRING} REFUELLED AND PAID {totalPrice} FOR {units} OF FUEL')
+      print(f'{INFO_STRING} {role} | {shipSymbol} {FUEL_STRING} REFUELLED AND PAID {totalPrice} FOR {units} OF FUEL')
 
 def extract(miningShipSymbol):
     print(f'{miningShipSymbol} Extracting...')
@@ -383,6 +388,7 @@ def view_market_data(systemSymbol, waypointSymbol):
       
 def sell(ship_data, goodsSymbol, units):
   shipSymbol = ship_data['symbol']
+  role = ship_data['registration']['role']
   payload = {'symbol': f"{goodsSymbol}", 'units': f"{units}" }
   r = requests.post(f'{BASE_URL}/my/ships/{shipSymbol}/sell', json=payload, headers=DEFAULT_HEADERS) 
   global HTTP_CALL_COUNTER
@@ -393,21 +399,63 @@ def sell(ship_data, goodsSymbol, units):
     message = error['message']
     return
   totalPrice = json_object['data']['transaction']['totalPrice']
-  print(f'{INFO_STRING} {shipSymbol} {SOLD_STRING} {units} {goodsSymbol} for {totalPrice}')
-    
+  print(f'{INFO_STRING} {role} {shipSymbol} {SOLD_STRING} {units} {goodsSymbol} for {totalPrice} ')
 
-def deliver_goods(miningShipSymbol, tradeSymbol, units, contractId):
-    payload = {'shipSymbol': f"{miningShipSymbol}", 'tradeSymbol': f"{tradeSymbol}", 'units': f"{units}" }
+def check_if_contract_is_complete(CONTRACT_ID):
+  r = requests.get(f'{BASE_URL}/my/contracts/{CONTRACT_ID}', headers=DEFAULT_HEADERS) 
+  json_object = json.loads(r.text)   
+  data = json_object['data']
+  terms = data['terms']
+  deliver = terms['deliver']
+  unitsRequired = deliver[0]['unitsRequired']
+  unitsFulfilled = deliver[0]['unitsFulfilled']
+  global HTTP_CALL_COUNTER
+  HTTP_CALL_COUNTER += 1
+  if unitsFulfilled == unitsRequired: 
+    return True
+  return False
+
+def has_contract_been_accepted(CONTRACT_ID):
+  r = requests.get(f'{BASE_URL}/my/contracts/{CONTRACT_ID}', headers=DEFAULT_HEADERS) 
+  json_object = json.loads(r.text)
+  data = json_object['data']
+  accepted = data['accepted']
+  if accepted:
+    return True
+  return False
+
+def add_contract_mineral_to_sale_goods():
+  print(f'Adding {CONTRACT_MINERAL} to SALE_GOODS')
+  global SALE_GOODS
+  SALE_GOODS.append(CONTRACT_MINERAL)
+
+def deliver_goods(ship_data, tradeSymbol, units, contractId):
+    shipSymbol = ship_data['symbol']
+    role = ship_data['registration']['role']
+    max_capacity = ship_data['cargo']['capacity']
+    capacity = ship_data['cargo']['units']
+    payload = {'shipSymbol': shipSymbol, 'tradeSymbol': tradeSymbol, 'units': units}
     r = requests.post(f'{BASE_URL}/my/contracts/{contractId}/deliver', json=payload, headers=DEFAULT_HEADERS) 
+    json_object = json.loads(r.text)
     global HTTP_CALL_COUNTER
     HTTP_CALL_COUNTER += 1
-    prettyprint(r.text)
+    print(f'{INFO_STRING} {role} {shipSymbol} | DELIVERED | {units} {tradeSymbol} {capacity}/{max_capacity}')
+
+    if check_if_contract_is_complete(CONTRACT_ID):
+      fulfil_contract(CONTRACT_ID)
+      add_contract_mineral_to_sale_goods()
+    return json_object
 
 def fulfil_contract(contractId):
     r = requests.post(f'{BASE_URL}/my/contracts/{contractId}/fulfill', headers=DEFAULT_HEADERS) 
     global HTTP_CALL_COUNTER
     HTTP_CALL_COUNTER += 1
-    prettyprint(r.text)
+    print(f'{INFO_STRING} CONTRACT COMPLETED')
+
+
+
+def pad_role_string(role_string):
+  return role_string.ljust(9, ' ')
 
 def jettison_cargo(ship_data, cargoSymbol, units):
   shipSymbol = ship_data['symbol']
@@ -520,16 +568,14 @@ def fish_for(shipSymbol, cargoSymbol):
     global BEST_SURVEY
     global BEST_SURVEY_SCORE
     
-
-
     rounded_ratio = round(ratio, 2)
 
     if ratio > BEST_SURVEY_SCORE:
-      print(f'{INFO_STRING} SURVEY SAYS {rounded_ratio} # NEW BEST #')
+      print(f'{INFO_STRING} SURVEY  | SAYS {rounded_ratio} # NEW BEST #')
       BEST_SURVEY = survey
       BEST_SURVEY_SCORE = round(rounded_ratio, 2)
     else:
-      print(f'{INFO_STRING} SURVEY RESULT {rounded_ratio} DOES NOT BEAT {BEST_SURVEY_SCORE}')
+      print(f'{INFO_STRING} SURVEY  | RESULT {rounded_ratio} DOES NOT BEAT {BEST_SURVEY_SCORE}')
 
 def get_ship_capacity():
   return True
@@ -612,14 +658,13 @@ def status_report(ship):
   cargo_units    = ship['cargo']['units']
   role           = ship['registration']['role']
   location       = ship['nav']['waypointSymbol']
-
-  print(SPACER_STRING)
+  
   print(f'{INFO_STRING} {role} | {shipSymbol}')
   print(f'{INFO_STRING} {role} | {shipSymbol} {LOCATION_STRING} {location}')
   print(f'{INFO_STRING} {role} | {shipSymbol} {STATUS_STRING} {status}')
-  print(f'{INFO_STRING} {role} | {shipSymbol} {FUEL_STRING} {remaining_fuel}/{fuel_capacity}')
-  print(f'{INFO_STRING} {role} | {shipSymbol} {CARGO_STRING} {cargo_units}/{max_capacity}')
-
+  if not role == 'SATELLITE':
+    print(f'{INFO_STRING} {role} | {shipSymbol} {FUEL_STRING} {remaining_fuel}/{fuel_capacity}')
+    print(f'{INFO_STRING} {role} | {shipSymbol} {CARGO_STRING} {cargo_units}/{max_capacity}')
 
 def does_ship_need_refuel(ship_data):
   shipSymbol = ship_data['symbol']
@@ -648,20 +693,18 @@ def purchase_surveyor():
   global SURVEYOR_SHIPS
   shipSymbol = buy_ship_result['ship']['symbol']
   SURVEYOR_SHIPS.append(shipSymbol)
-  print(f'{INFO_STRING} PURCHASED SURVEYOR')
+  #print(f'{INFO_STRING} PURCHASED SURVEYOR')
 
 def purchase_miner():
   buy_ship_result = buy_ship('SHIP_MINING_DRONE', MINING_SHIP_BUYING_LOCATION)
   global MINING_SHIPS
   shipSymbol = buy_ship_result['ship']['symbol']
   MINING_SHIPS.append(shipSymbol)
-  print(f'{INFO_STRING} PURCHASED MINER')
+  #print(f'{INFO_STRING} PURCHASED MINER')
 
 # ROLE LOOPS
-
-
 def basic_mining_loop(ship_data, asteroid_location):
-  print(SPACER_STRING)
+  
   status_report(ship_data)
   shipSymbol = ship_data['symbol'] 
   role = ship_data['registration']['role']
@@ -673,7 +716,10 @@ def basic_mining_loop(ship_data, asteroid_location):
       print(f'{INFO_STRING} {role} | {shipSymbol} DOCKING')
       dock(ship_data)
 
-    if not is_ship_empty(ship_data):      
+    if not is_ship_empty(ship_data):
+      if not CONTRACT_HAS_BEEN_COMPLETED:
+        if how_much_of_x_does_ship_have_in_cargo(ship_data, CONTRACT_MINERAL) > 0:
+          deliver_goods(ship_data, CONTRACT_MINERAL, how_much_of_x_does_ship_have_in_cargo(ship_data, CONTRACT_MINERAL), CONTRACT_ID)
       for cargoSymbol in SALE_GOODS:
         sell(ship_data, cargoSymbol, how_much_of_x_does_ship_have_in_cargo(ship_data, cargoSymbol))
     orbit(ship_data)
@@ -702,7 +748,7 @@ def basic_mining_loop(ship_data, asteroid_location):
       move(ship_data, CONTRACT_ASTEROID_LOCATION)
 
 def basic_survey_loop(ship_data, asteroid_location):
-  print(SPACER_STRING)
+  
   status_report(ship_data)
   shipSymbol = ship_data['symbol']
   if is_ship_already_at_waypoint(ship_data, asteroid_location):
@@ -716,7 +762,7 @@ def basic_survey_loop(ship_data, asteroid_location):
     move(ship_data, asteroid_location)
     
 def basic_command_loop(ship_data):
-  print(SPACER_STRING)
+  
   shipSymbol = ship_data['symbol']
   shipRole   = ship_data['registration']['role']
   if BEST_SURVEY_SCORE < COMMAND_SHIP_DO_I_MINE_TOLERANCE:
@@ -780,6 +826,7 @@ def basic_probe_loop(ship_data):
 #exit()
 
 
+
 # MAIN
 turn = 0
 
@@ -796,9 +843,13 @@ else:
   create_agent()
   read_existing_auth_token_file_into_memory()
 
-print(SPACER_STRING)
+
 
 populate_contract_globals()
+
+if not has_contract_been_accepted(CONTRACT_ID):
+  print('accepting contract')
+  accept_contract(CONTRACT_ID)
 
 all_ships_json = my_ships()
 for ship in all_ships_json:
@@ -813,6 +864,8 @@ for ship in all_ships_json:
     MINING_SHIPS.append(shipSymbol)
   if shipRole == 'SURVEYOR':
     SURVEYOR_SHIPS.append(shipSymbol)
+
+    
 
 populate_locations(CURRENT_SYSTEM)
 
@@ -838,7 +891,7 @@ while True:
   if is_ship_ready(probe_ship_json):
     basic_probe_loop(probe_ship_json)
 
-  print(SPACER_STRING)
+  
 
   # surveyor ship main
   if len(SURVEYOR_SHIPS) > 0:
@@ -851,7 +904,6 @@ while True:
         else:
           basic_survey_loop(surveyor_ship_data, CONTRACT_ASTEROID_LOCATION)
 
-  print(SPACER_STRING)
 
   # Command ship main
   command_ship_json = get_ship(COMMAND_SHIP)
@@ -862,7 +914,6 @@ while True:
     else:
       basic_command_loop(command_ship_json)
 
-  print(SPACER_STRING)
 
   # mining ship main
   if len(MINING_SHIPS) > 0:
@@ -875,13 +926,13 @@ while True:
         else:
           basic_mining_loop(mining_ship_json, CONTRACT_ASTEROID_LOCATION)
   
-  print(SPACER_STRING)
+  
   print (f'{INFO_STRING} TURN {turn} {TURN_STRING} END -----------------------------')
-  print(SPACER_STRING)
+  
   print (f'{INFO_STRING} HTTP COST | {HTTP_CALL_COUNTER/2}/m')
 
   my_agent()
-  print(SPACER_STRING)
+  
   print (f"""
   
 
