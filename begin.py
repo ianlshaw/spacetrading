@@ -6,7 +6,7 @@ from datetime import datetime,timedelta
 import os.path
 
 ###
-CALLSIGN = 'TVRJ-TEST-347'
+CALLSIGN = 'TVRJ-TEST-350'
 FACTION  = 'COSMIC'
 DESIRED_SURVEYOR_SHIPS = 1
 DESIRED_MINING_SHIPS = 1
@@ -396,7 +396,9 @@ def check_if_contract_is_complete(CONTRACT_ID):
   HTTP_CALL_COUNTER += 1
   if unitsFulfilled == unitsRequired: 
     return True
+  print(f'{INFO_STRING} CONTRACT NOT DONE')
   return False
+  
 
 def has_contract_been_accepted(CONTRACT_ID):
   r = requests.get(f'{BASE_URL}/my/contracts/{CONTRACT_ID}', headers=DEFAULT_HEADERS) 
@@ -408,7 +410,7 @@ def has_contract_been_accepted(CONTRACT_ID):
   return False
 
 def add_contract_mineral_to_sale_goods():
-  print(f'Adding {CONTRACT_MINERAL} to SALE_GOODS')
+  print(f'{INFO_STRING} ADDING {CONTRACT_MINERAL} TO SALE_GOODS')
   global SALE_GOODS
   SALE_GOODS.append(CONTRACT_MINERAL)
 
@@ -422,7 +424,7 @@ def deliver_goods(ship_data, tradeSymbol, units, contractId):
     json_object = json.loads(r.text)
     global HTTP_CALL_COUNTER
     HTTP_CALL_COUNTER += 1
-    print(f'{INFO_STRING} {role} {shipSymbol} | DELIVERED | {units} {tradeSymbol} {capacity}/{max_capacity}')
+    print(f'{INFO_STRING} {role} {shipSymbol} | DELIVERED | {units} {tradeSymbol}')
     if check_if_contract_is_complete(CONTRACT_ID):
       fulfil_contract(CONTRACT_ID)
       add_contract_mineral_to_sale_goods()
@@ -693,7 +695,9 @@ def basic_mining_loop(ship_data, asteroid_location):
         if how_much_of_x_does_ship_have_in_cargo(ship_data, CONTRACT_MINERAL) > 0:
           deliver_goods(ship_data, CONTRACT_MINERAL, how_much_of_x_does_ship_have_in_cargo(ship_data, CONTRACT_MINERAL), CONTRACT_ID)
       for cargoSymbol in SALE_GOODS:
-        sell(ship_data, cargoSymbol, how_much_of_x_does_ship_have_in_cargo(ship_data, cargoSymbol))
+        units_of_cargo = how_much_of_x_does_ship_have_in_cargo(ship_data, cargoSymbol)
+        if units_of_cargo > 0:
+          sell(ship_data, cargoSymbol, units_of_cargo)
     orbit(ship_data)
     move(ship_data, asteroid_location)
   else:
